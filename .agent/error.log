@@ -1,0 +1,453 @@
+file:///home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:1
+var http = require('http');
+           ^
+
+ReferenceError: require is not defined
+    at file:///home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:1:12
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:387:35)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:323:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1371:24)
+    at Module._compile (node:internal/modules/cjs/loader:1511:5)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1572:16)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+
+Node.js v20.19.4
+file:///home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:1
+var http = require('http');
+           ^
+
+ReferenceError: require is not defined
+    at file:///home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:1:12
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:387:35)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:323:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1371:24)
+    at Module._compile (node:internal/modules/cjs/loader:1511:5)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1572:16)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+
+Node.js v20.19.4
+node:internal/modules/cjs/loader:1215
+  throw err;
+  ^
+
+Error: Cannot find module 'dotenv'
+Require stack:
+- /home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:6:34)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v20.19.4
+node:internal/modules/cjs/loader:1215
+  throw err;
+  ^
+
+Error: Cannot find module 'dotenv'
+Require stack:
+- /home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:6:34)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v20.19.4
+node:internal/modules/cjs/loader:1215
+  throw err;
+  ^
+
+Error: Cannot find module 'dotenv'
+Require stack:
+- /home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:6:34)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v20.19.4
+node:internal/modules/cjs/loader:1215
+  throw err;
+  ^
+
+Error: Cannot find module 'dotenv'
+Require stack:
+- /home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:6:34)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v20.19.4
+node:internal/modules/cjs/loader:1215
+  throw err;
+  ^
+
+Error: Cannot find module 'dotenv'
+Require stack:
+- /home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js:6:34)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/facreat2/public_html/clientarea.facreativefirm.com/dist/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4
+/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43
+    throw new Error('@prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.');
+    ^
+
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+    at new PrismaClient (/home/facreat2/nodevenv/public_html/clientarea.facreativefirm.com/20/lib/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/config/database.js:4:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/facreat2/public_html/clientarea.facreativefirm.com/dist/controllers/auth.controller.js:9:36)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+
+Node.js v20.19.4

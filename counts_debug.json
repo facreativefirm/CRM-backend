@@ -1,0 +1,54 @@
+[
+  {
+    "id": 1,
+    "name": "Shared Hosting",
+    "slug": "shared-hosting",
+    "description": "Shared Hosting",
+    "parentCategoryId": null,
+    "displayOrder": 0,
+    "iconClass": null,
+    "createdAt": "2025-12-30T11:05:13.670Z",
+    "_count": {
+      "products": 1
+    }
+  },
+  {
+    "id": 3,
+    "name": "BDIX",
+    "slug": "bdix",
+    "description": "BDIX",
+    "parentCategoryId": null,
+    "displayOrder": 3,
+    "iconClass": "fas fa-server",
+    "createdAt": "2026-01-01T10:42:32.112Z",
+    "_count": {
+      "products": 0
+    }
+  },
+  {
+    "id": 4,
+    "name": "SSD Web Hosting",
+    "slug": "ssd-web-hosting",
+    "description": "SSD Web Hosting",
+    "parentCategoryId": null,
+    "displayOrder": 1,
+    "iconClass": "",
+    "createdAt": "2026-01-04T06:01:08.444Z",
+    "_count": {
+      "products": 0
+    }
+  },
+  {
+    "id": 5,
+    "name": "General",
+    "slug": "general",
+    "description": "Automatically created fallback category",
+    "parentCategoryId": null,
+    "displayOrder": 0,
+    "iconClass": null,
+    "createdAt": "2026-01-04T06:19:48.893Z",
+    "_count": {
+      "products": 1
+    }
+  }
+]

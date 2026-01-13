@@ -1,0 +1,1178 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id                   Int                      @id @default(autoincrement())
+  userId               Int                      @unique(map: "Client_userId_key")
+  resellerId           Int?
+  referredByReseller   Boolean                  @default(false)
+  companyName          String?
+  businessType         String?
+  taxId                String?
+  currency             String                   @default("USD")
+  creditBalance        Decimal                  @default(0.00) @db.Decimal(10, 2)
+  status               ClientStatus             @default(ACTIVE)
+  clientSince          DateTime                 @default(now())
+  notes                String?                  @db.Text
+  language             String                   @default("en")
+  groupId              Int?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  affiliate            Affiliate?
+  referredAffiliates   AffiliateReferral[]      @relation("ReferredClients")
+  billableItems        BillableItem[]
+  cancellationRequests CancellationRequest[]
+  group                ClientGroup?             @relation(fields: [groupId], references: [id])
+  reseller             User?                    @relation("ResellerClients", fields: [resellerId], references: [id])
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contacts             ClientContact[]
+  customFieldValues    ClientCustomFieldValue[]
+  securityQuestions    ClientSecurityQuestion[]
+  domains              Domain[]
+  invoices             Invoice[]
+  orders               Order[]
+  quotes               Quote[]
+  commissions          ResellerCommission[]
+  services             Service[]
+  tickets              SupportTicket[]
+
+  @@index([clientSince], map: "Client_clientSince_idx")
+  @@index([companyName], map: "Client_companyName_idx")
+  @@index([resellerId], map: "Client_resellerId_idx")
+  @@index([status], map: "Client_status_idx")
+  @@index([groupId], map: "client_groupId_fkey")
+  @@map("client")
+}
+
+model ClientContact {
+  id          Int         @id @default(autoincrement())
+  clientId    Int
+  contactType ContactType @default(PRIMARY)
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  address1    String?
+  address2    String?
+  city        String?
+  state       String?
+  zip         String?
+  country     String?
+  isPrimary   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId], map: "ClientContact_clientId_idx")
+  @@index([email], map: "ClientContact_email_idx")
+  @@map("clientcontact")
+}
+
+model ClientCustomFieldValue {
+  id         Int         @id @default(autoincrement())
+  clientId   Int
+  fieldId    Int
+  fieldValue String      @db.Text
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  field      CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, fieldId], map: "ClientCustomFieldValue_clientId_fieldId_key")
+  @@index([clientId], map: "ClientCustomFieldValue_clientId_idx")
+  @@index([fieldId], map: "ClientCustomFieldValue_fieldId_idx")
+  @@map("clientcustomfieldvalue")
+}
+
+model ClientGroup {
+  id                 Int      @id @default(autoincrement())
+  groupName          String
+  groupColor         String?
+  discountPercentage Decimal  @default(0.00) @db.Decimal(5, 2)
+  taxExempt          Boolean  @default(false)
+  settings           String?  @db.LongText
+  createdAt          DateTime @default(now())
+  clients            Client[]
+
+  @@map("clientgroup")
+}
+
+model ClientSecurityQuestion {
+  id         Int              @id @default(autoincrement())
+  clientId   Int
+  questionId Int
+  answerHash String
+  client     Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  question   SecurityQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([clientId, questionId], map: "ClientSecurityQuestion_clientId_questionId_key")
+  @@index([clientId], map: "ClientSecurityQuestion_clientId_idx")
+  @@index([questionId], map: "ClientSecurityQuestion_questionId_idx")
+  @@map("clientsecurityquestion")
+}
+
+model Affiliate {
+  id              Int                 @id @default(autoincrement())
+  clientId        Int                 @unique(map: "Affiliate_clientId_unique")
+  referralCode    String              @unique(map: "Affiliate_referralCode_key")
+  commissionRate  Decimal             @db.Decimal(5, 2)
+  totalEarnings   Decimal             @default(0.00) @db.Decimal(10, 2)
+  paidEarnings    Decimal             @default(0.00) @db.Decimal(10, 2)
+  pendingEarnings Decimal             @default(0.00) @db.Decimal(10, 2)
+  referralCount   Int                 @default(0)
+  status          String              @default("ACTIVE")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  client          Client              @relation(fields: [clientId], references: [id])
+  referrals       AffiliateReferral[]
+
+  @@index([status], map: "Affiliate_status_idx")
+  @@map("affiliate")
+}
+
+model AffiliateReferral {
+  id               Int       @id @default(autoincrement())
+  affiliateId      Int
+  referredClientId Int
+  referredOrderId  Int?      @unique
+  commissionAmount Decimal   @db.Decimal(10, 2)
+  status           String    @default("PENDING")
+  referralDate     DateTime  @default(now())
+  affiliate        Affiliate @relation(fields: [affiliateId], references: [id])
+  referredClient   Client    @relation("ReferredClients", fields: [referredClientId], references: [id])
+  order            Order?    @relation(fields: [referredOrderId], references: [id])
+
+  @@index([affiliateId], map: "AffiliateReferral_affiliateId_idx")
+  @@index([referralDate], map: "AffiliateReferral_referralDate_idx")
+  @@index([referredClientId], map: "AffiliateReferral_referredClientId_idx")
+  @@index([status], map: "AffiliateReferral_status_idx")
+  @@map("affiliatereferral")
+}
+
+model BannedIP {
+  id        Int       @id @default(autoincrement())
+  ipAddress String    @unique(map: "BannedIP_ipAddress_key")
+  reason    String?
+  bannedAt  DateTime  @default(now())
+  expiresAt DateTime?
+  bannedBy  Int?
+
+  @@index([ipAddress], map: "BannedIP_ipAddress_idx")
+  @@map("bannedip")
+}
+
+model BillableItem {
+  id                 Int       @id @default(autoincrement())
+  clientId           Int
+  description        String
+  quantity           Int       @default(1)
+  unitPrice          Decimal   @db.Decimal(10, 2)
+  recurringFrequency String?
+  nextInvoiceDate    DateTime?
+  status             String    @default("UNINVOICED")
+  createdAt          DateTime  @default(now())
+  client             Client    @relation(fields: [clientId], references: [id])
+
+  @@index([clientId], map: "BillableItem_clientId_idx")
+  @@index([nextInvoiceDate], map: "BillableItem_nextInvoiceDate_idx")
+  @@index([status], map: "BillableItem_status_idx")
+  @@map("billableitem")
+}
+
+model CalendarEvent {
+  id           Int       @id @default(autoincrement())
+  title        String
+  description  String?   @db.Text
+  startDate    DateTime
+  endDate      DateTime?
+  allDay       Boolean   @default(false)
+  color        String?
+  createdById  Int
+  reminderSent Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdBy    User      @relation(fields: [createdById], references: [id])
+
+  @@index([allDay], map: "CalendarEvent_allDay_idx")
+  @@index([createdById], map: "CalendarEvent_createdById_idx")
+  @@index([startDate], map: "CalendarEvent_startDate_idx")
+  @@map("calendarevent")
+}
+
+model CancellationRequest {
+  id          Int       @id @default(autoincrement())
+  clientId    Int
+  serviceId   Int
+  reason      String    @db.Text
+  type        String
+  status      String    @default("PENDING")
+  requestDate DateTime  @default(now())
+  actionDate  DateTime?
+  client      Client    @relation(fields: [clientId], references: [id])
+  service     Service   @relation(fields: [serviceId], references: [id])
+
+  @@index([clientId], map: "CancellationRequest_clientId_idx")
+  @@index([requestDate], map: "CancellationRequest_requestDate_idx")
+  @@index([serviceId], map: "CancellationRequest_serviceId_idx")
+  @@index([status], map: "CancellationRequest_status_idx")
+  @@map("cancellationrequest")
+}
+
+model CustomField {
+  id          Int                      @id @default(autoincrement())
+  fieldName   String
+  fieldType   String
+  optionsJson String?                  @db.LongText
+  required    Boolean                  @default(false)
+  adminOnly   Boolean                  @default(false)
+  showInvoice Boolean                  @default(false)
+  values      ClientCustomFieldValue[]
+
+  @@index([fieldName], map: "CustomField_fieldName_idx")
+  @@map("customfield")
+}
+
+model SecurityQuestion {
+  id            Int                      @id @default(autoincrement())
+  question      String
+  createdAt     DateTime                 @default(now())
+  clientAnswers ClientSecurityQuestion[]
+
+  @@map("securityquestion")
+}
+
+model Currency {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique(map: "Currency_code_key")
+  prefix    String?
+  suffix    String?
+  rate      Decimal  @db.Decimal(10, 4)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isDefault], map: "Currency_isDefault_idx")
+  @@map("currency")
+}
+
+model Domain {
+  id                        Int                        @id @default(autoincrement())
+  clientId                  Int
+  domainName                String
+  registrationDate          DateTime                   @default(now())
+  expiryDate                DateTime
+  registrar                 String
+  status                    DomainStatus               @default(ACTIVE)
+  autoRenew                 Boolean                    @default(false)
+  dnsManagement             Boolean                    @default(false)
+  emailForwarding           Boolean                    @default(false)
+  idProtection              Boolean                    @default(false)
+  nameservers               String?                    @db.LongText
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  client                    Client                     @relation(fields: [clientId], references: [id])
+  invoiceItems              InvoiceItem[]
+  expiryNotificationRecords ExpiryNotificationRecord[]
+
+  @@index([clientId], map: "Domain_clientId_idx")
+  @@index([domainName], map: "Domain_domainName_idx")
+  @@index([expiryDate], map: "Domain_expiryDate_idx")
+  @@index([status], map: "Domain_status_idx")
+  @@map("domain")
+}
+
+model DomainProduct {
+  id                Int     @id @default(autoincrement())
+  productId         Int     @unique(map: "DomainProduct_productId_key")
+  tld               String
+  registrationPrice Decimal @db.Decimal(10, 2)
+  renewalPrice      Decimal @db.Decimal(10, 2)
+  transferPrice     Decimal @db.Decimal(10, 2)
+  registrar         String
+  eppRequired       Boolean @default(false)
+  product           Product @relation(fields: [productId], references: [id])
+
+  @@index([tld], map: "DomainProduct_tld_idx")
+  @@map("domainproduct")
+}
+
+model DomainTLD {
+  id                Int      @id @default(autoincrement())
+  tld               String   @unique(map: "DomainTLD_tld_key")
+  registrar         String?
+  registrationPrice Decimal  @db.Decimal(10, 2)
+  renewalPrice      Decimal  @db.Decimal(10, 2)
+  transferPrice     Decimal  @db.Decimal(10, 2)
+  dnsManagement     Boolean  @default(false)
+  emailForwarding   Boolean  @default(false)
+  idProtection      Boolean  @default(false)
+  eppRequired       Boolean  @default(false)
+  autoRegistration  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tld], map: "DomainTLD_tld_idx")
+  @@map("domaintld")
+}
+
+model GatewayLog {
+  id            Int      @id @default(autoincrement())
+  gateway       String
+  transactionId String?
+  requestData   String?  @db.LongText
+  responseData  String?  @db.LongText
+  status        String
+  timestamp     DateTime @default(now())
+
+  @@index([gateway], map: "GatewayLog_gateway_idx")
+  @@index([timestamp], map: "GatewayLog_timestamp_idx")
+  @@index([transactionId], map: "GatewayLog_transactionId_idx")
+  @@map("gatewaylog")
+}
+
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  invoiceNumber  String        @unique(map: "Invoice_invoiceNumber_key")
+  clientId       Int
+  invoiceDate    DateTime      @default(now())
+  dueDate        DateTime
+  status         InvoiceStatus @default(UNPAID)
+  subtotal       Decimal       @db.Decimal(10, 2)
+  taxAmount      Decimal       @default(0.00) @db.Decimal(10, 2)
+  totalAmount    Decimal       @db.Decimal(10, 2)
+  amountPaid     Decimal       @default(0.00) @db.Decimal(10, 2)
+  paymentMethod  String?
+  paidDate       DateTime?
+  lateFeeApplied Boolean       @default(false)
+  orderId        Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  adminNotes     String?       @db.Text
+  notes          String?       @db.Text
+  deletedAt      DateTime?
+  isDeleted      Boolean       @default(false)
+  client         Client        @relation(fields: [clientId], references: [id])
+  order          Order?        @relation(fields: [orderId], references: [id])
+  items          InvoiceItem[]
+  transactions   Transaction[]
+
+  @@index([clientId], map: "Invoice_clientId_idx")
+  @@index([dueDate], map: "Invoice_dueDate_idx")
+  @@index([invoiceDate], map: "Invoice_invoiceDate_idx")
+  @@index([invoiceNumber], map: "Invoice_invoiceNumber_idx")
+  @@index([status], map: "Invoice_status_idx")
+  @@index([orderId], map: "invoice_orderId_fkey")
+  @@map("invoice")
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  description String
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  taxRate     Decimal  @default(0.00) @db.Decimal(5, 2)
+  totalAmount Decimal  @db.Decimal(10, 2)
+  serviceId   Int?
+  domainId    Int?
+  metadata    String?    @db.LongText
+  invoice     Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service     Service?   @relation(fields: [serviceId], references: [id])
+  domain      Domain?    @relation(fields: [domainId], references: [id])
+
+  @@index([invoiceId], map: "InvoiceItem_invoiceId_idx")
+  @@index([serviceId], map: "InvoiceItem_serviceId_idx")
+  @@map("invoiceitem")
+}
+
+model LinkTracking {
+  id           Int      @id @default(autoincrement())
+  url          String
+  campaign     String?
+  source       String?
+  medium       String?
+  clicks       Int      @default(0)
+  uniqueClicks Int      @default(0)
+  conversions  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([campaign], map: "LinkTracking_campaign_idx")
+  @@index([createdAt], map: "LinkTracking_createdAt_idx")
+  @@index([source, medium], map: "LinkTracking_source_medium_idx")
+  @@map("linktracking")
+}
+
+model NetworkIssue {
+  id               Int       @id @default(autoincrement())
+  title            String
+  description      String    @db.Text
+  type             String
+  status           String
+  startDate        DateTime
+  endDate          DateTime?
+  affectedServices String?   @db.LongText
+  updates          String?   @db.LongText
+  createdAt        DateTime  @default(now())
+
+  @@index([startDate], map: "NetworkIssue_startDate_idx")
+  @@index([status], map: "NetworkIssue_status_idx")
+  @@index([type], map: "NetworkIssue_type_idx")
+  @@map("networkissue")
+}
+
+model Order {
+  id                Int                  @id @default(autoincrement())
+  orderNumber       String               @unique(map: "Order_orderNumber_key")
+  clientId          Int
+  status            OrderStatus          @default(PENDING)
+  paymentMethod     String?
+  totalAmount       Decimal              @db.Decimal(10, 2)
+  promoCode         String?
+  fraudCheckData    String?              @db.LongText
+  notes             String?              @db.Text
+  adminNotes        String?              @db.Text
+  resellerId        Int?
+  isResellerOrder   Boolean              @default(false)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  affiliateReferral AffiliateReferral?
+  invoices          Invoice[]
+  client            Client               @relation(fields: [clientId], references: [id])
+  reseller          User?                @relation("ResellerOrders", fields: [resellerId], references: [id])
+  items             OrderItem[]
+  statusHistory     OrderStatusHistory[]
+  commissions       ResellerCommission[]
+  services          Service[]
+
+  @@index([clientId], map: "Order_clientId_idx")
+  @@index([createdAt], map: "Order_createdAt_idx")
+  @@index([orderNumber], map: "Order_orderNumber_idx")
+  @@index([resellerId], map: "Order_resellerId_idx")
+  @@index([status], map: "Order_status_idx")
+  @@map("order")
+}
+
+model OrderItem {
+  id            Int     @id @default(autoincrement())
+  orderId       Int
+  productId     Int
+  domainName    String?
+  billingCycle  String
+  quantity      Int     @default(1)
+  unitPrice     Decimal @db.Decimal(10, 2)
+  setupFee      Decimal @default(0.00) @db.Decimal(10, 2)
+  totalPrice    Decimal @db.Decimal(10, 2)
+  configOptions String? @db.LongText
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId], map: "OrderItem_orderId_idx")
+  @@index([productId], map: "OrderItem_productId_idx")
+  @@map("orderitem")
+}
+
+model OrderStatusHistory {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  oldStatus    String
+  newStatus    String
+  changedBy    String
+  changeReason String?  @db.Text
+  timestamp    DateTime @default(now())
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "OrderStatusHistory_orderId_idx")
+  @@index([timestamp], map: "OrderStatusHistory_timestamp_idx")
+  @@map("orderstatushistory")
+}
+
+model PaymentGateway {
+  id          Int     @id @default(autoincrement())
+  gatewayName String  @unique(map: "PaymentGateway_gatewayName_key")
+  displayName String
+  settings    String? @db.LongText
+  enabled     Boolean @default(false)
+  testMode    Boolean @default(false)
+
+  @@index([enabled], map: "PaymentGateway_enabled_idx")
+  @@map("paymentgateway")
+}
+
+model PredefinedReply {
+  id        Int    @id @default(autoincrement())
+  title     String
+  category  String
+  message   String @db.Text
+  tags      String
+  usedCount Int    @default(0)
+
+  @@index([category], map: "PredefinedReply_category_idx")
+  @@index([tags], map: "PredefinedReply_tags_idx")
+  @@map("predefinedreply")
+}
+
+model Product {
+  id               Int                  @id @default(autoincrement())
+  name             String
+  slug             String               @unique(map: "Product_slug_key")
+  productType      ProductType
+  pricingModel     PricingModel
+  description      String?              @db.Text
+  features         String?              @db.LongText
+  setupFee         Decimal              @default(0.00) @db.Decimal(10, 2)
+  monthlyPrice     Decimal              @default(0.00) @db.Decimal(10, 2)
+  quarterlyPrice   Decimal              @default(0.00) @db.Decimal(10, 2)
+  semiAnnualPrice  Decimal              @default(0.00) @db.Decimal(10, 2)
+  annualPrice      Decimal              @default(0.00) @db.Decimal(10, 2)
+  biennialPrice    Decimal              @default(0.00) @db.Decimal(10, 2)
+  triennialPrice   Decimal              @default(0.00) @db.Decimal(10, 2)
+  status           ProductStatus        @default(ACTIVE)
+  stockQuantity    Int?
+  autoSetup        Boolean              @default(false)
+  serverId         Int?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  serviceId        Int
+  domainProduct    DomainProduct?
+  orderItems       OrderItem[]
+  server           Server?              @relation(fields: [serverId], references: [id])
+  productService   ProductService       @relation(fields: [serviceId], references: [id])
+  commissions      ResellerCommission[]
+  resellerProducts ResellerProduct[]
+  services         Service[]
+  addons           ServiceAddon[]
+
+  @@index([serviceId], map: "Product_serviceId_idx")
+  @@index([slug], map: "Product_slug_idx")
+  @@index([status], map: "Product_status_idx")
+  @@index([serverId], map: "product_serverId_fkey")
+  @@map("product")
+}
+
+model ProductService {
+  id              Int              @id @default(autoincrement())
+  name            String
+  slug            String           @unique
+  description     String?          @db.Text
+  parentServiceId Int?
+  displayOrder    Int              @default(0)
+  iconClass       String?
+  createdAt       DateTime         @default(now())
+  products        Product[]
+  parentService   ProductService?  @relation("ServiceHierarchy", fields: [parentServiceId], references: [id])
+  childServices   ProductService[] @relation("ServiceHierarchy")
+
+  @@index([slug])
+  @@index([parentServiceId], map: "product_services_parentServiceId_fkey")
+  @@map("product_services")
+}
+
+model Promotion {
+  id                 Int       @id @default(autoincrement())
+  code               String    @unique(map: "Promotion_code_key")
+  type               String
+  value              Decimal   @db.Decimal(10, 2)
+  validFrom          DateTime
+  validUntil         DateTime?
+  usageLimit         Int?
+  usedCount          Int       @default(0)
+  minimumOrderAmount Decimal?  @db.Decimal(10, 2)
+  recurrence         Int?
+  applicableProducts String?   @db.LongText
+  createdAt          DateTime  @default(now())
+
+  @@index([code], map: "Promotion_code_idx")
+  @@index([type], map: "Promotion_type_idx")
+  @@index([validUntil], map: "Promotion_validUntil_idx")
+  @@map("promotion")
+}
+
+model Quote {
+  id           Int      @id @default(autoincrement())
+  quoteNumber  String   @unique(map: "Quote_quoteNumber_key")
+  clientId     Int
+  proposalDate DateTime @default(now())
+  validUntil   DateTime
+  status       String   @default("DRAFT")
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  terms        String?  @db.Text
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  client       Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId], map: "Quote_clientId_idx")
+  @@index([status], map: "Quote_status_idx")
+  @@index([validUntil], map: "Quote_validUntil_idx")
+  @@map("quote")
+}
+
+model ResellerCommission {
+  id               Int              @id @default(autoincrement())
+  resellerId       Int
+  orderId          Int
+  clientId         Int
+  productId        Int
+  orderAmount      Decimal          @db.Decimal(10, 2)
+  commissionRate   Decimal          @db.Decimal(5, 2)
+  commissionAmount Decimal          @db.Decimal(10, 2)
+  status           CommissionStatus @default(PENDING)
+  payoutId         Int?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  client           Client           @relation(fields: [clientId], references: [id])
+  order            Order            @relation(fields: [orderId], references: [id])
+  payout           ResellerPayout?  @relation(fields: [payoutId], references: [id])
+  product          Product          @relation(fields: [productId], references: [id])
+  reseller         User             @relation(fields: [resellerId], references: [id])
+
+  @@index([createdAt], map: "ResellerCommission_createdAt_idx")
+  @@index([payoutId], map: "ResellerCommission_payoutId_idx")
+  @@index([resellerId], map: "ResellerCommission_resellerId_idx")
+  @@index([status], map: "ResellerCommission_status_idx")
+  @@index([clientId], map: "resellercommission_clientId_fkey")
+  @@index([orderId], map: "resellercommission_orderId_fkey")
+  @@index([productId], map: "resellercommission_productId_fkey")
+  @@map("resellercommission")
+}
+
+model ResellerPayout {
+  id                Int                  @id @default(autoincrement())
+  resellerId        Int
+  payoutPeriodStart DateTime
+  payoutPeriodEnd   DateTime
+  totalCommissions  Decimal              @db.Decimal(10, 2)
+  fees              Decimal              @default(0.00) @db.Decimal(10, 2)
+  netAmount         Decimal              @db.Decimal(10, 2)
+  paymentMethod     String
+  transactionId     String?
+  status            PayoutStatus         @default(PENDING)
+  paidDate          DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  commissions       ResellerCommission[]
+  reseller          User                 @relation(fields: [resellerId], references: [id])
+
+  @@index([payoutPeriodEnd], map: "ResellerPayout_payoutPeriodEnd_idx")
+  @@index([resellerId], map: "ResellerPayout_resellerId_idx")
+  @@index([status], map: "ResellerPayout_status_idx")
+  @@map("resellerpayout")
+}
+
+model ResellerProduct {
+  id               Int      @id @default(autoincrement())
+  resellerId       Int
+  productId        Int
+  markupPercentage Decimal  @default(20.00) @db.Decimal(5, 2)
+  customPrice      Decimal? @db.Decimal(10, 2)
+  status           String   @default("ACTIVE")
+  maxQuantity      Int?
+  createdAt        DateTime @default(now())
+  product          Product  @relation(fields: [productId], references: [id])
+  reseller         User     @relation(fields: [resellerId], references: [id])
+
+  @@unique([resellerId, productId], map: "ResellerProduct_resellerId_productId_key")
+  @@index([resellerId], map: "ResellerProduct_resellerId_idx")
+  @@index([productId], map: "resellerproduct_productId_fkey")
+  @@map("resellerproduct")
+}
+
+model Server {
+  id           Int       @id @default(autoincrement())
+  serverName   String
+  serverType   String
+  hostname     String
+  ipAddress    String
+  username     String?
+  passwordHash String?
+  apiKey       String?
+  status       String    @default("ACTIVE")
+  maxAccounts  Int?
+  location     String?
+  provider     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
+  services     Service[]
+
+  @@map("server")
+}
+
+model Service {
+  id                        Int                        @id @default(autoincrement())
+  clientId                  Int
+  productId                 Int
+  orderId                   Int?
+  domain                    String?
+  status                    ServiceStatus              @default(PENDING)
+  nextDueDate               DateTime?
+  terminationDate           DateTime?
+  serverId                  Int?
+  username                  String?
+  passwordHash              String?
+  ipAddress                 String?
+  diskUsage                 Decimal?                   @db.Decimal(10, 2)
+  bandwidthUsage            Decimal?                   @db.Decimal(10, 2)
+  configOptions             String?                    @db.LongText
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  amount                    Decimal                    @default(0.00) @db.Decimal(10, 2)
+  billingCycle              String                     @default("monthly")
+  cancellationRequests      CancellationRequest[]
+  expiryNotificationRecords ExpiryNotificationRecord[]
+  invoiceItems              InvoiceItem[]
+  client                    Client                     @relation(fields: [clientId], references: [id])
+  order                     Order?                     @relation(fields: [orderId], references: [id])
+  product                   Product                    @relation(fields: [productId], references: [id])
+  server                    Server?                    @relation(fields: [serverId], references: [id])
+  tickets                   SupportTicket[]
+
+  @@index([clientId], map: "Service_clientId_idx")
+  @@index([domain], map: "Service_domain_idx")
+  @@index([nextDueDate], map: "Service_nextDueDate_idx")
+  @@index([serverId], map: "Service_serverId_idx")
+  @@index([status], map: "Service_status_idx")
+  @@index([orderId], map: "service_orderId_fkey")
+  @@index([productId], map: "service_productId_fkey")
+  @@map("service")
+}
+
+model ServiceAddon {
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String?  @db.Text
+  price        Decimal  @db.Decimal(10, 2)
+  billingCycle String
+  applicableTo String?
+  productId    Int?
+  product      Product? @relation(fields: [productId], references: [id])
+
+  @@index([productId], map: "ServiceAddon_productId_idx")
+  @@map("serviceaddon")
+}
+
+model Session {
+  id             String    @id @default(uuid())
+  userId         Int
+  sessionToken   String    @unique(map: "Session_sessionToken_key")
+  ipAddress      String?
+  userAgent      String?   @db.Text
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  activeTicketId Int?
+  lastPresenceAt DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt], map: "Session_expiresAt_idx")
+  @@index([sessionToken], map: "Session_sessionToken_idx")
+  @@index([userId], map: "Session_userId_idx")
+  @@map("session")
+}
+
+model Staff {
+  id                   Int             @id @default(autoincrement())
+  userId               Int             @unique(map: "Staff_userId_key")
+  department           String?
+  permissionsLevel     String          @default("limited")
+  signature            String?
+  assignedTicketsCount Int             @default(0)
+  performanceMetrics   String?         @db.LongText
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tickets              SupportTicket[]
+  todoItems            TodoItem[]
+
+  @@map("staff")
+}
+
+model SupportTicket {
+  id            Int              @id @default(autoincrement())
+  ticketNumber  String           @unique(map: "SupportTicket_ticketNumber_key")
+  clientId      Int
+  subject       String
+  priority      TicketPriority   @default(MEDIUM)
+  status        String           @default("OPEN")
+  departmentId  Int
+  flagged       Boolean          @default(false)
+  lastReplyDate DateTime         @default(now())
+  assignedToId  Int?
+  serviceId     Int?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  staffId       Int?
+  assignedTo    User?            @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  client        Client           @relation(fields: [clientId], references: [id])
+  department    TicketDepartment @relation(fields: [departmentId], references: [id])
+  service       Service?         @relation(fields: [serviceId], references: [id])
+  staff         Staff?           @relation(fields: [staffId], references: [id])
+  replies       TicketReply[]
+
+  @@index([assignedToId], map: "SupportTicket_assignedToId_idx")
+  @@index([clientId], map: "SupportTicket_clientId_idx")
+  @@index([lastReplyDate], map: "SupportTicket_lastReplyDate_idx")
+  @@index([priority], map: "SupportTicket_priority_idx")
+  @@index([status], map: "SupportTicket_status_idx")
+  @@index([ticketNumber], map: "SupportTicket_ticketNumber_idx")
+  @@index([departmentId], map: "supportticket_departmentId_fkey")
+  @@index([serviceId], map: "supportticket_serviceId_fkey")
+  @@index([staffId], map: "supportticket_staffId_fkey")
+  @@map("supportticket")
+}
+
+model TicketDepartment {
+  id                   Int             @id @default(autoincrement())
+  name                 String
+  email                String
+  autoresponderEnabled Boolean         @default(false)
+  assignedSupportId    Int?
+  tickets              SupportTicket[]
+  assignedSupport      User?           @relation("DepartmentAssignedSupport", fields: [assignedSupportId], references: [id])
+
+  @@index([assignedSupportId], map: "ticketdepartment_assignedSupportId_fkey")
+  @@map("ticketdepartment")
+}
+
+model TicketReply {
+  id             Int           @id @default(autoincrement())
+  ticketId       Int
+  userId         Int
+  message        String        @db.Text
+  attachments    String?       @db.LongText
+  isInternalNote Boolean       @default(false)
+  emailSent      Boolean       @default(false)
+  timestamp      DateTime      @default(now())
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id])
+
+  @@index([ticketId], map: "TicketReply_ticketId_idx")
+  @@index([timestamp], map: "TicketReply_timestamp_idx")
+  @@index([userId], map: "TicketReply_userId_idx")
+  @@map("ticketreply")
+}
+
+model TodoItem {
+  id          Int       @id @default(autoincrement())
+  staffId     Int
+  title       String
+  description String?   @db.Text
+  priority    String
+  dueDate     DateTime?
+  status      String    @default("PENDING")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  staff       Staff     @relation(fields: [staffId], references: [id])
+
+  @@index([dueDate], map: "TodoItem_dueDate_idx")
+  @@index([priority], map: "TodoItem_priority_idx")
+  @@index([staffId], map: "TodoItem_staffId_idx")
+  @@index([status], map: "TodoItem_status_idx")
+  @@map("todoitem")
+}
+
+model SystemSetting {
+  id           Int     @id @default(autoincrement())
+  settingKey   String  @unique(map: "SystemSetting_settingKey_key")
+  settingValue String  @db.Text
+  settingGroup String
+  encrypted    Boolean @default(false)
+
+  @@index([settingGroup], map: "SystemSetting_settingGroup_idx")
+  @@map("systemsetting")
+}
+
+model TaxRate {
+  id                Int      @id @default(autoincrement())
+  country           String?
+  state             String?
+  taxRate           Decimal  @db.Decimal(5, 2)
+  compound          Boolean  @default(false)
+  appliedToProducts String?  @db.LongText
+  createdAt         DateTime @default(now())
+
+  @@index([country], map: "TaxRate_country_idx")
+  @@index([state], map: "TaxRate_state_idx")
+  @@map("taxrate")
+}
+
+model Transaction {
+  id              Int      @id @default(autoincrement())
+  invoiceId       Int
+  gateway         String
+  amount          Decimal  @db.Decimal(10, 2)
+  fees            Decimal? @db.Decimal(10, 2)
+  status          String
+  transactionId   String?  @unique(map: "Transaction_transactionId_key")
+  gatewayResponse String?  @db.LongText
+  adminNotes      String?  @db.Text
+  createdAt       DateTime @default(now())
+  refunds         Refund[]
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@index([createdAt], map: "Transaction_createdAt_idx")
+  @@index([gateway], map: "Transaction_gateway_idx")
+  @@index([invoiceId], map: "Transaction_invoiceId_idx")
+  @@index([transactionId], map: "Transaction_transactionId_idx")
+  @@map("transaction")
+}
+
+model WhoisLog {
+  id        Int      @id @default(autoincrement())
+  domain    String
+  userId    Int
+  result    String   @db.Text
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([domain], map: "WhoisLog_domain_idx")
+  @@index([timestamp], map: "WhoisLog_timestamp_idx")
+  @@index([userId], map: "WhoisLog_userId_idx")
+  @@map("whoislog")
+}
+
+model Refund {
+  id              Int         @id @default(autoincrement())
+  transactionId   Int
+  amount          Decimal     @db.Decimal(10, 2)
+  reason          String      @db.Text
+  status          String      @default("PENDING_AUTHORIZATION")
+  requestedById   Int
+  authorizedById  Int?
+  approvedById    Int?
+  rejectionReason String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  approvedBy      User?       @relation("ApprovedRefunds", fields: [approvedById], references: [id])
+  authorizedBy    User?       @relation("AuthorizedRefunds", fields: [authorizedById], references: [id])
+  requestedBy     User        @relation("RequestedRefunds", fields: [requestedById], references: [id])
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([approvedById], map: "refund_approvedById_fkey")
+  @@index([authorizedById], map: "refund_authorizedById_fkey")
+  @@index([requestedById], map: "refund_requestedById_fkey")
+  @@index([transactionId], map: "refund_transactionId_fkey")
+  @@map("refund")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  type      String
+  title     String
+  message   String   @db.Text
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notification")
+}
+
+model ExpiryNotificationRecord {
+  id               Int      @id @default(autoincrement())
+  serviceId        Int?
+  domainId         Int?
+  userId           Int
+  notificationType String
+  daysToExpiry     Int
+  sentAt           DateTime @default(now())
+  domain           Domain?  @relation(fields: [domainId], references: [id])
+  service          Service? @relation(fields: [serviceId], references: [id])
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@index([serviceId])
+  @@index([domainId])
+  @@index([userId])
+  @@map("expirynotificationrecord")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  activity  String
+  details   String?  @db.Text
+  ipAddress String?
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], map: "ActivityLog_userId_fkey")
+
+  @@index([activity], map: "ActivityLog_activity_idx")
+  @@index([timestamp], map: "ActivityLog_timestamp_idx")
+  @@index([userId], map: "ActivityLog_userId_idx")
+  @@map("activitylog")
+}
+
+model User {
+  id                  Int                        @id @default(autoincrement())
+  userType            UserType                   @default(CLIENT)
+  username            String                     @unique(map: "User_username_key")
+  email               String                     @unique(map: "User_email_key")
+  passwordHash        String
+  firstName           String?
+  lastName            String?
+  status              UserStatus                 @default(ACTIVE)
+  twoFactorAuth       Boolean                    @default(false)
+  lastLogin           DateTime?
+  resellerType        ResellerType?
+  commissionRate      Decimal?                   @db.Decimal(5, 2)
+  markupRate          Decimal?                   @db.Decimal(5, 2)
+  whiteLabelEnabled   Boolean                    @default(false)
+  customDomain        String?
+  brandSettings       String?                    @db.LongText
+  monthlyFee          Decimal?                   @db.Decimal(10, 2)
+  nextBillingDate     DateTime?
+  maxClients          Int?
+  maxProducts         Int?
+  diskSpaceLimit      Decimal?                   @db.Decimal(10, 2)
+  bandwidthLimit      Decimal?                   @db.Decimal(10, 2)
+  resellerFeatures    String?                    @db.LongText
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  phoneNumber         String?
+  activityLogs        ActivityLog[]
+  calendarEvents      CalendarEvent[]
+  resellerClients     Client[]                   @relation("ResellerClients")
+  client              Client?
+  expiryNotifications ExpiryNotificationRecord[]
+  notifications       Notification[]
+  resellerOrders      Order[]                    @relation("ResellerOrders")
+  approvedRefunds     Refund[]                   @relation("ApprovedRefunds")
+  authorizedRefunds   Refund[]                   @relation("AuthorizedRefunds")
+  requestedRefunds    Refund[]                   @relation("RequestedRefunds")
+  commissions         ResellerCommission[]
+  payouts             ResellerPayout[]
+  resellerProducts    ResellerProduct[]
+  sessions            Session[]
+  staff               Staff?
+  ticketsAssigned     SupportTicket[]            @relation("AssignedTickets")
+  assignedDepartments TicketDepartment[]         @relation("DepartmentAssignedSupport")
+  ticketReplies       TicketReply[]
+  whoisLogs           WhoisLog[]
+
+  @@index([email], map: "User_email_idx")
+  @@index([status], map: "User_status_idx")
+  @@index([userType], map: "User_userType_idx")
+  @@map("user")
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum ContactType {
+  BILLING
+  TECHNICAL
+  PRIMARY
+  OTHER
+}
+
+enum DomainStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRANSFERRED
+  PENDING
+}
+
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+  COLLECTIONS
+  PAYMENT_PENDING
+  PARTIALLY_PAID
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  FRAUD
+  REFUNDED
+}
+
+enum ProductType {
+  HOSTING
+  VPS
+  DOMAIN
+  SSL
+  RESELLER
+  ADDON
+  OTHER
+}
+
+enum PricingModel {
+  ONETIME
+  RECURRING
+  FREE
+  USAGE_BASED
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  TERMINATED
+  PENDING
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+  REJECTED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum UserType {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  RESELLER
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum ResellerType {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+  WHITELABEL
+}
