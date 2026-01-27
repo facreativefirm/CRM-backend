@@ -2546,3 +2546,4 @@
 [31mCan't reach database server at `127.0.0.1:3306`[39m
 
 [31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-27 11:20:40:2040 [31merror[39m: [31m❌ Failed to connect to the database on startup:[39m
