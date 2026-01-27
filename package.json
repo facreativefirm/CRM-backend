@@ -10,8 +10,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "postinstall": "prisma generate",
-    "start": "node dist/server.js",
-    "start:production": "NODE_ENV=production node dist/server.js",
+    "start": "node dist/src/server.js",
+    "start:production": "NODE_ENV=production node dist/src/server.js",
     "test": "jest"
   },
   "keywords": [],
