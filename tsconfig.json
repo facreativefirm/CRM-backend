@@ -20,10 +20,20 @@
         ],
         "types": [
             "node"
-        ]
+        ],
+        "baseUrl": "./src",
+        "paths": {
+            "@/*": [
+                "./*"
+            ],
+            "@prisma/client": [
+                "../prisma/generated/client"
+            ]
+        }
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "prisma/generated/client/**/*"
     ],
     "exclude": [
         "node_modules",

@@ -21,6 +21,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 
-EXPOSE 5000
+EXPOSE 3006
 
 CMD ["npm", "run", "start"]

@@ -25,6 +25,7 @@ whmcs-backend-production.*
 
 # generated
 /generated
+/prisma/generated
 
 # misc
 .DS_Store
