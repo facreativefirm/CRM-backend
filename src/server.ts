@@ -1,3 +1,11 @@
+import moduleAlias from 'module-alias';
+import path from 'path';
+
+// Register alias for @prisma/client to generated folder (matches structure in src and dist)
+// src/server.ts -> ../prisma is root/prisma
+// dist/src/server.js -> ../prisma is dist/prisma
+moduleAlias.addAlias('@prisma/client', path.join(__dirname, '../prisma/generated/client'));
+
 import './config/env';
 import express from 'express';
 import http from 'http';
