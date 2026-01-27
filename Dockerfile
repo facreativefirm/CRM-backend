@@ -12,6 +12,9 @@ COPY . .
 
 RUN npm run build
 
+# Copy generated prisma client to dist to match local structure
+RUN mkdir -p dist/prisma && cp -r prisma/generated dist/prisma/
+
 FROM node:20-alpine
 
 WORKDIR /app
@@ -19,6 +22,7 @@ WORKDIR /app
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
+# We don't need /app/prisma in the final image if it's in dist, but keeping it serves as backup/reference
 COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3006
