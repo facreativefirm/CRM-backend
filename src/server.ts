@@ -1,4 +1,3 @@
-import 'module-alias/register';
 import './config/env';
 import express from 'express';
 import http from 'http';
