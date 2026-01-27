@@ -26,7 +26,9 @@ router.post('/callback', invoicesController.handlePaymentCallback);
 router.post('/generate-due', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.generateDueInvoices);
 
 // Admin: Update status & Delete
+router.post('/:id/add-payment', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.addAdminPayment);
 router.patch('/:id/status', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.updateInvoiceStatus);
+router.post('/:id/notify', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.sendInvoiceNotification);
 router.delete('/:id', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.deleteInvoice);
 
 export default router;

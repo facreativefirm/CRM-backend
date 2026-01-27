@@ -85,10 +85,30 @@ const getEmailSettings = async () => {
 
 export const sendEmail = async (to: string, subject: string, html: string, attachments?: { filename: string, content: Buffer | string }[]) => {
     const config = await getEmailSettings();
-    const appName = config.smtpFromName || 'Client Portal';
+    let appName = config.smtpFromName || 'Client Portal';
+
+    // White-label detection logic: Check if recipient belongs to a Reseller
+    try {
+        const client = await prisma.client.findFirst({
+            where: { user: { email: to } },
+            include: { reseller: true }
+        });
+
+        if (client?.reseller && client.reseller.whiteLabelEnabled) {
+            const brandSettings = client.reseller.brandSettings ?
+                (typeof client.reseller.brandSettings === 'string' ? JSON.parse(client.reseller.brandSettings) : client.reseller.brandSettings)
+                : null;
+
+            if (brandSettings?.brandName) {
+                appName = brandSettings.brandName;
+            }
+        }
+    } catch (err) {
+        console.error('White-label email detection failed:', err);
+    }
 
     if (!config.smtpHost || !config.smtpUser) {
-        console.warn('Email settings not configured. Logging email to console.');
+        console.warn(`Email settings not configured. App: ${appName}. Logging to console.`);
         return;
     }
 
@@ -122,6 +142,18 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
  * Professional Email Templates
  */
 export const EmailTemplates = {
+    welcome: (firstName: string) => ({
+        subject: `Welcome to Cloud Portal, ${firstName}!`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Welcome aboard!</h2>
+            <p style="margin: 0 0 24px 0;">Hi ${firstName}, your account has been successfully created. We're excited to have you with us!</p>
+            <p style="margin: 0 0 32px 0;">You can now log in to your dashboard to manage your services, billing, and support requests.</p>
+            <div style="text-align: center;">
+                <a href="#" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Dashboard</a>
+            </div>
+        `
+    }),
+
     orderConfirmation: (orderNumber: string, total: string) => ({
         subject: `Your request (#${orderNumber}) has been received`,
         body: `
@@ -149,9 +181,29 @@ export const EmailTemplates = {
         `
     }),
 
-    invoiceCreated: (invoiceNumber: string, dueDate: string, total: string) => ({
-        subject: `New Invoice Generated (#${invoiceNumber})`,
-        body: `
+    invoiceCreated: (invoiceOrNumber: any, dueDate?: string, total?: string) => {
+        let invoiceNumber: string = "";
+        let date: string = "";
+        let amount: string = "";
+
+        if (typeof invoiceOrNumber === 'object') {
+            invoiceNumber = invoiceOrNumber.invoiceNumber;
+            date = new Date(invoiceOrNumber.dueDate).toLocaleDateString();
+            amount = invoiceOrNumber.totalAmount?.toString() || calculateTotal(invoiceOrNumber);
+        } else {
+            invoiceNumber = invoiceOrNumber;
+            date = dueDate || "";
+            amount = total || "";
+        }
+
+        // Helper if needed, but assuming totalAmount is available or passed
+        function calculateTotal(inv: any) {
+            return inv.totalAmount || "0.00";
+        }
+
+        return {
+            subject: `New Invoice Generated (#${invoiceNumber})`,
+            body: `
             <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">New Invoice Available</h2>
             <p style="margin: 0 0 24px 0;">A new invoice has been generated for your account. Please ensure payment is made by the due date to avoid any service interruption.</p>
             
@@ -168,11 +220,11 @@ export const EmailTemplates = {
                     </tr>
                     <tr>
                         <td style="color: #6b7280; font-size: 14px;">Amount Due</td>
-                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${total}</td>
+                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
                     </tr>
                     <tr>
                         <td style="color: #6b7280; font-size: 14px;">Due Date</td>
-                        <td style="color: #ef4444; font-size: 14px; font-weight: 600; text-align: right;">${dueDate}</td>
+                        <td style="color: #ef4444; font-size: 14px; font-weight: 600; text-align: right;">${date}</td>
                     </tr>
                 </table>
             </div>
@@ -183,7 +235,8 @@ export const EmailTemplates = {
                 <a href="#" style="background-color: #f37021; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Secure Payment</a>
             </div>
         `
-    }),
+        };
+    },
 
     invoicePaid: (invoiceNumber: string) => ({
         subject: `Payment Confirmation: Invoice #${invoiceNumber}`,
@@ -375,6 +428,183 @@ export const EmailTemplates = {
             <div style="text-align: center;">
                 <a href="#" style="background-color: #111827; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">View Item in Admin</a>
             </div>
+        `
+    }),
+
+    quoteProposal: (quoteNumber: string, amount: string, validUntil: string, url: string = "#") => ({
+        subject: `New Proposal Received: #${quoteNumber}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Proposal for Services</h2>
+            <p style="margin: 0 0 24px 0;">We have prepared a new quotation for you. Please review the details below.</p>
+            
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #64748b; font-size: 14px;">Quote Number</td>
+                        <td style="padding-bottom: 12px; color: #0f172a; font-size: 14px; font-weight: 600; text-align: right;">#${quoteNumber}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #64748b; font-size: 14px;">Total Amount</td>
+                        <td style="padding-bottom: 12px; color: #0f172a; font-size: 16px; font-weight: 700; text-align: right;">${amount}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #64748b; font-size: 14px;">Valid Until</td>
+                        <td style="color: #0f172a; font-size: 14px; font-weight: 600; text-align: right;">${validUntil}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">You can view the full details and accept or reject this proposal directly from your client portal.</p>
+            
+            <div style="text-align: center;">
+                <a href="${url}" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">View Proposal</a>
+            </div>
+        `
+    }),
+
+    quoteAccepted: (quoteNumber: string, invoiceNumber: string) => ({
+        subject: `Quote Accepted: #${quoteNumber}`,
+        body: `
+            <div style="text-align: center; margin-bottom: 24px;">
+                <div style="background-color: #d1fae5; width: 64px; height: 64px; border-radius: 32px; display: inline-block; line-height: 64px; text-align: center;">
+                    <span style="color: #059669; font-size: 32px;">👍</span>
+                </div>
+            </div>
+            <h2 style="text-align: center; color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Proposal Accepted</h2>
+            <p style="text-align: center; margin: 0 0 24px 0; color: #4b5563;">Thank you for accepting our proposal <strong>#${quoteNumber}</strong>.</p>
+            
+            <p style="text-align: center; margin: 0 0 32px 0;">An invoice (<strong>#${invoiceNumber}</strong>) has been generated and is now available for payment.</p>
+            
+            <div style="text-align: center;">
+                <a href="#" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">View Invoice</a>
+            </div>
+        `
+    }),
+
+    payoutRequested: (amount: string, method: string) => ({
+        subject: `Withdrawal Request Received: ${amount}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Withdrawal Request Received</h2>
+            <p style="margin: 0 0 24px 0;">We've received your request to withdraw funds from your account.</p>
+            
+            <div style="background-color: #f9fafb; border: 1px solid #f3f4f6; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px;">Amount requested</td>
+                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #6b7280; font-size: 14px;">Method</td>
+                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${method}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Our finance team is reviewing your request. This process typically takes 1-3 business days. You'll receive another email once it's processed.</p>
+        `
+    }),
+
+    payoutProcessed: (amount: string, status: string, notes?: string) => ({
+        subject: `Withdrawal Request ${status}: ${amount}`,
+        body: `
+            <div style="text-align: center; margin-bottom: 24px;">
+                <div style="background-color: ${status === 'PAID' ? '#d1fae5' : '#fee2e2'}; width: 64px; height: 64px; border-radius: 32px; display: inline-block; line-height: 64px; text-align: center;">
+                    <span style="color: ${status === 'PAID' ? '#059669' : '#ef4444'}; font-size: 32px;">${status === 'PAID' ? '✓' : '✕'}</span>
+                </div>
+            </div>
+            <h2 style="text-align: center; color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Withdrawal ${status}</h2>
+            <p style="text-align: center; margin: 0 0 24px 0; color: #4b5563;">Your withdrawal request for <strong>${amount}</strong> has been <strong>${status}</strong>.</p>
+            
+            ${notes ? `
+            <div style="background-color: #f3f4f6; border-radius: 12px; padding: 20px; margin-bottom: 32px;">
+                <p style="margin: 0; color: #4b5563; font-size: 14px;"><strong>Admin Notes:</strong> ${notes}</p>
+            </div>
+            ` : ''}
+
+            <p style="margin: 0 0 32px 0; text-align: center;">You can check your transaction history in your dashboard for more details.</p>
+        `
+    }),
+
+    adminPayoutNotification: (userName: string, amount: string, method: string, type: string) => ({
+        subject: `ACTION REQUIRED: New Payout Request from ${userName}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">New Payout Request</h2>
+            <p style="margin: 0 0 24px 0;">A new payout request has been submitted by a <strong>${type}</strong>.</p>
+            
+            <div style="background-color: #f3f4f6; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">User</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Amount</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #6b7280; font-size: 14px;">Method</td>
+                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${method}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Please log in to the admin panel to review and process this request.</p>
+        `
+    }),
+
+    adminManualPayment: (invoiceNumber: string, clientName: string, amount: string, gateway: string, transactionId: string, senderNumber: string) => ({
+        subject: `ACTION REQUIRED: Manual Payment Proof #${invoiceNumber}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Manual Payment Proof Submitted</h2>
+            <p style="margin: 0 0 24px 0;">A client has submitted manual payment proof for their invoice.</p>
+            
+            <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Invoice #</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${invoiceNumber}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Client</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${clientName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Amount</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Gateway</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${gateway}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Transaction ID</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${transactionId}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #6b7280; font-size: 14px;">Sender Number</td>
+                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${senderNumber}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Please review the proof and approve/reject the transaction in the admin billing section.</p>
+            <div style="text-align: center;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/billing?tab=transactions" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Transactions</a>
+            </div>
+        `
+    }),
+
+    adminTransitionNotification: (type: string, details: string) => ({
+        subject: `System Alert: New Client ${type}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">${type} Recorded</h2>
+            <p style="margin: 0 0 24px 0;">A new client activity was recorded on the system.</p>
+            
+            <div style="background-color: #f3f4f6; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <p style="margin: 0; color: #111827; font-size: 14px; line-height: 1.6;">${details}</p>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">You can view the details in the administrative dashboard.</p>
         `
     })
 };

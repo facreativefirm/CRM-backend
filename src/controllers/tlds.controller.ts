@@ -29,7 +29,7 @@ export const createTLD = async (req: AuthRequest, res: Response) => {
 export const updateTLD = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const tld = await prisma.domainTLD.update({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id as string) },
         data: req.body
     });
     res.status(200).json({ status: 'success', data: { tld } });
@@ -41,7 +41,7 @@ export const updateTLD = async (req: AuthRequest, res: Response) => {
 export const deleteTLD = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     await prisma.domainTLD.delete({
-        where: { id: parseInt(id) }
+        where: { id: parseInt(id as string) }
     });
     res.status(204).json({ status: 'success', data: null });
 };

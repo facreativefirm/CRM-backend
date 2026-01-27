@@ -206,3 +206,17 @@ export const syncTLDPricing = async (req: Request, res: Response) => {
 
     res.status(200).json({ status: 'success', message: 'TLD pricing synced successfully' });
 };
+
+/**
+ * Force run the automated cron job tasks (Admin Only)
+ */
+export const runCronJob = async (req: Request, res: Response) => {
+    try {
+        const { checkExpirations } = await import('../services/cronService');
+        await checkExpirations();
+        res.status(200).json({ status: 'success', message: 'Automated cron job tasks executed successfully.' });
+    } catch (err: any) {
+        console.error('Manual cron trigger failure:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+};

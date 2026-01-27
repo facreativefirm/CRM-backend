@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -25,6 +25,8 @@ model Client {
   groupId              Int?
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
+  guestIpAddress       String?
+  isGuest              Boolean                  @default(false)
   affiliate            Affiliate?
   referredAffiliates   AffiliateReferral[]      @relation("ReferredClients")
   billableItems        BillableItem[]
@@ -38,6 +40,7 @@ model Client {
   domains              Domain[]
   invoices             Invoice[]
   orders               Order[]
+  prospectRecord       ProspectClient?
   quotes               Quote[]
   commissions          ResellerCommission[]
   services             Service[]
@@ -274,8 +277,8 @@ model Domain {
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   client                    Client                     @relation(fields: [clientId], references: [id])
-  invoiceItems              InvoiceItem[]
   expiryNotificationRecords ExpiryNotificationRecord[]
+  invoiceItems              InvoiceItem[]
 
   @@index([clientId], map: "Domain_clientId_idx")
   @@index([domainName], map: "Domain_domainName_idx")
@@ -334,30 +337,32 @@ model GatewayLog {
 }
 
 model Invoice {
-  id             Int           @id @default(autoincrement())
-  invoiceNumber  String        @unique(map: "Invoice_invoiceNumber_key")
-  clientId       Int
-  invoiceDate    DateTime      @default(now())
-  dueDate        DateTime
-  status         InvoiceStatus @default(UNPAID)
-  subtotal       Decimal       @db.Decimal(10, 2)
-  taxAmount      Decimal       @default(0.00) @db.Decimal(10, 2)
-  totalAmount    Decimal       @db.Decimal(10, 2)
-  amountPaid     Decimal       @default(0.00) @db.Decimal(10, 2)
-  paymentMethod  String?
-  paidDate       DateTime?
-  lateFeeApplied Boolean       @default(false)
-  orderId        Int?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  adminNotes     String?       @db.Text
-  notes          String?       @db.Text
-  deletedAt      DateTime?
-  isDeleted      Boolean       @default(false)
-  client         Client        @relation(fields: [clientId], references: [id])
-  order          Order?        @relation(fields: [orderId], references: [id])
-  items          InvoiceItem[]
-  transactions   Transaction[]
+  id                  Int                  @id @default(autoincrement())
+  invoiceNumber       String               @unique(map: "Invoice_invoiceNumber_key")
+  clientId            Int
+  invoiceDate         DateTime             @default(now())
+  dueDate             DateTime
+  status              InvoiceStatus        @default(UNPAID)
+  subtotal            Decimal              @db.Decimal(10, 2)
+  taxAmount           Decimal              @default(0.00) @db.Decimal(10, 2)
+  totalAmount         Decimal              @db.Decimal(10, 2)
+  amountPaid          Decimal              @default(0.00) @db.Decimal(10, 2)
+  paymentMethod       String?
+  paidDate            DateTime?
+  lateFeeApplied      Boolean              @default(false)
+  orderId             Int?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  adminNotes          String?              @db.Text
+  notes               String?              @db.Text
+  deletedAt           DateTime?
+  isDeleted           Boolean              @default(false)
+  investorCommissions InvestorCommission[]
+  client              Client               @relation(fields: [clientId], references: [id])
+  order               Order?               @relation(fields: [orderId], references: [id])
+  items               InvoiceItem[]
+  quote               Quote?
+  transactions        Transaction[]
 
   @@index([clientId], map: "Invoice_clientId_idx")
   @@index([dueDate], map: "Invoice_dueDate_idx")
@@ -378,13 +383,14 @@ model InvoiceItem {
   totalAmount Decimal  @db.Decimal(10, 2)
   serviceId   Int?
   domainId    Int?
-  metadata    String?    @db.LongText
-  invoice     Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  service     Service?   @relation(fields: [serviceId], references: [id])
-  domain      Domain?    @relation(fields: [domainId], references: [id])
+  metadata    String?  @db.LongText
+  domain      Domain?  @relation(fields: [domainId], references: [id])
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id])
 
   @@index([invoiceId], map: "InvoiceItem_invoiceId_idx")
   @@index([serviceId], map: "InvoiceItem_serviceId_idx")
+  @@index([domainId], map: "invoiceitem_domainId_fkey")
   @@map("invoiceitem")
 }
 
@@ -541,6 +547,7 @@ model Product {
   orderItems       OrderItem[]
   server           Server?              @relation(fields: [serverId], references: [id])
   productService   ProductService       @relation(fields: [serviceId], references: [id])
+  quoteItems       QuoteItem[]
   commissions      ResellerCommission[]
   resellerProducts ResellerProduct[]
   services         Service[]
@@ -592,22 +599,47 @@ model Promotion {
 }
 
 model Quote {
-  id           Int      @id @default(autoincrement())
-  quoteNumber  String   @unique(map: "Quote_quoteNumber_key")
+  id           Int         @id @default(autoincrement())
+  quoteNumber  String      @unique(map: "Quote_quoteNumber_key")
   clientId     Int
-  proposalDate DateTime @default(now())
+  proposalDate DateTime    @default(now())
   validUntil   DateTime
-  status       String   @default("DRAFT")
-  totalAmount  Decimal  @db.Decimal(10, 2)
-  terms        String?  @db.Text
-  notes        String?  @db.Text
-  createdAt    DateTime @default(now())
-  client       Client   @relation(fields: [clientId], references: [id])
+  status       String      @default("DRAFT")
+  totalAmount  Decimal     @db.Decimal(10, 2)
+  terms        String?     @db.Text
+  notes        String?     @db.Text
+  createdAt    DateTime    @default(now())
+  invoiceId    Int?        @unique
+  subject      String?
+  subtotal     Decimal     @default(0.00) @db.Decimal(10, 2)
+  taxTotal     Decimal     @default(0.00) @db.Decimal(10, 2)
+  updatedAt    DateTime    @updatedAt
+  client       Client      @relation(fields: [clientId], references: [id])
+  invoice      Invoice?    @relation(fields: [invoiceId], references: [id])
+  items        QuoteItem[]
 
   @@index([clientId], map: "Quote_clientId_idx")
   @@index([status], map: "Quote_status_idx")
   @@index([validUntil], map: "Quote_validUntil_idx")
   @@map("quote")
+}
+
+model QuoteItem {
+  id           Int      @id @default(autoincrement())
+  quoteId      Int
+  description  String
+  quantity     Int      @default(1)
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  amount       Decimal  @db.Decimal(10, 2)
+  productId    Int?
+  billingCycle String?
+  domainName   String?
+  product      Product? @relation(fields: [productId], references: [id])
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId], map: "QuoteItem_quoteId_idx")
+  @@index([productId], map: "quoteitem_productId_fkey")
+  @@map("quoteitem")
 }
 
 model ResellerCommission {
@@ -789,26 +821,27 @@ model Staff {
 }
 
 model SupportTicket {
-  id            Int              @id @default(autoincrement())
-  ticketNumber  String           @unique(map: "SupportTicket_ticketNumber_key")
-  clientId      Int
-  subject       String
-  priority      TicketPriority   @default(MEDIUM)
-  status        String           @default("OPEN")
-  departmentId  Int
-  flagged       Boolean          @default(false)
-  lastReplyDate DateTime         @default(now())
-  assignedToId  Int?
-  serviceId     Int?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  staffId       Int?
-  assignedTo    User?            @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  client        Client           @relation(fields: [clientId], references: [id])
-  department    TicketDepartment @relation(fields: [departmentId], references: [id])
-  service       Service?         @relation(fields: [serviceId], references: [id])
-  staff         Staff?           @relation(fields: [staffId], references: [id])
-  replies       TicketReply[]
+  id              Int              @id @default(autoincrement())
+  ticketNumber    String           @unique(map: "SupportTicket_ticketNumber_key")
+  clientId        Int
+  subject         String
+  priority        TicketPriority   @default(MEDIUM)
+  status          String           @default("OPEN")
+  departmentId    Int
+  flagged         Boolean          @default(false)
+  lastReplyDate   DateTime         @default(now())
+  assignedToId    Int?
+  serviceId       Int?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  staffId         Int?
+  guestActivities GuestActivity[]
+  assignedTo      User?            @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  client          Client           @relation(fields: [clientId], references: [id])
+  department      TicketDepartment @relation(fields: [departmentId], references: [id])
+  service         Service?         @relation(fields: [serviceId], references: [id])
+  staff           Staff?           @relation(fields: [staffId], references: [id])
+  replies         TicketReply[]
 
   @@index([assignedToId], map: "SupportTicket_assignedToId_idx")
   @@index([clientId], map: "SupportTicket_clientId_idx")
@@ -1006,56 +1039,330 @@ model ActivityLog {
 }
 
 model User {
-  id                  Int                        @id @default(autoincrement())
-  userType            UserType                   @default(CLIENT)
-  username            String                     @unique(map: "User_username_key")
-  email               String                     @unique(map: "User_email_key")
-  passwordHash        String
-  firstName           String?
-  lastName            String?
-  status              UserStatus                 @default(ACTIVE)
-  twoFactorAuth       Boolean                    @default(false)
-  lastLogin           DateTime?
-  resellerType        ResellerType?
-  commissionRate      Decimal?                   @db.Decimal(5, 2)
-  markupRate          Decimal?                   @db.Decimal(5, 2)
-  whiteLabelEnabled   Boolean                    @default(false)
-  customDomain        String?
-  brandSettings       String?                    @db.LongText
-  monthlyFee          Decimal?                   @db.Decimal(10, 2)
-  nextBillingDate     DateTime?
-  maxClients          Int?
-  maxProducts         Int?
-  diskSpaceLimit      Decimal?                   @db.Decimal(10, 2)
-  bandwidthLimit      Decimal?                   @db.Decimal(10, 2)
-  resellerFeatures    String?                    @db.LongText
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
-  phoneNumber         String?
-  activityLogs        ActivityLog[]
-  calendarEvents      CalendarEvent[]
-  resellerClients     Client[]                   @relation("ResellerClients")
-  client              Client?
-  expiryNotifications ExpiryNotificationRecord[]
-  notifications       Notification[]
-  resellerOrders      Order[]                    @relation("ResellerOrders")
-  approvedRefunds     Refund[]                   @relation("ApprovedRefunds")
-  authorizedRefunds   Refund[]                   @relation("AuthorizedRefunds")
-  requestedRefunds    Refund[]                   @relation("RequestedRefunds")
-  commissions         ResellerCommission[]
-  payouts             ResellerPayout[]
-  resellerProducts    ResellerProduct[]
-  sessions            Session[]
-  staff               Staff?
-  ticketsAssigned     SupportTicket[]            @relation("AssignedTickets")
-  assignedDepartments TicketDepartment[]         @relation("DepartmentAssignedSupport")
-  ticketReplies       TicketReply[]
-  whoisLogs           WhoisLog[]
+  id                    Int                        @id @default(autoincrement())
+  userType              UserType                   @default(CLIENT)
+  username              String                     @unique(map: "User_username_key")
+  email                 String                     @unique(map: "User_email_key")
+  passwordHash          String
+  firstName             String?
+  lastName              String?
+  status                UserStatus                 @default(ACTIVE)
+  twoFactorAuth         Boolean                    @default(false)
+  lastLogin             DateTime?
+  resellerType          ResellerType?
+  commissionRate        Decimal?                   @db.Decimal(5, 2)
+  markupRate            Decimal?                   @db.Decimal(5, 2)
+  whiteLabelEnabled     Boolean                    @default(false)
+  customDomain          String?
+  brandSettings         String?                    @db.LongText
+  monthlyFee            Decimal?                   @db.Decimal(10, 2)
+  nextBillingDate       DateTime?
+  maxClients            Int?
+  maxProducts           Int?
+  diskSpaceLimit        Decimal?                   @db.Decimal(10, 2)
+  bandwidthLimit        Decimal?                   @db.Decimal(10, 2)
+  resellerFeatures      String?                    @db.LongText
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  phoneNumber           String?
+  whatsAppNumber        String?
+  activityLogs          ActivityLog[]
+  calendarEvents        CalendarEvent[]
+  resellerClients       Client[]                   @relation("ResellerClients")
+  client                Client?
+  expiryNotifications   ExpiryNotificationRecord[]
+  investor              Investor?
+  notifications         Notification[]
+  resellerOrders        Order[]                    @relation("ResellerOrders")
+  approvedTransactions  PointTransaction[]         @relation("TransactionApprover")
+  processedTransactions PointTransaction[]         @relation("TransactionProcessor")
+  verifiedProofs        ProofSubmission[]          @relation("ProofVerifier")
+  verifiedProspects     ProspectClient[]           @relation("ProspectVerifier")
+  approvedRefunds       Refund[]                   @relation("ApprovedRefunds")
+  authorizedRefunds     Refund[]                   @relation("AuthorizedRefunds")
+  requestedRefunds      Refund[]                   @relation("RequestedRefunds")
+  commissions           ResellerCommission[]
+  payouts               ResellerPayout[]
+  resellerProducts      ResellerProduct[]
+  salesTeamMember       SalesTeamMember?
+  sessions              Session[]
+  staff                 Staff?
+  ticketsAssigned       SupportTicket[]            @relation("AssignedTickets")
+  assignedDepartments   TicketDepartment[]         @relation("DepartmentAssignedSupport")
+  ticketReplies         TicketReply[]
+  whoisLogs             WhoisLog[]
+  paidWithdrawals       WithdrawalRequest[]        @relation("WithdrawalPayer")
+  processedWithdrawals  WithdrawalRequest[]        @relation("WithdrawalProcessor")
 
   @@index([email], map: "User_email_idx")
   @@index([status], map: "User_status_idx")
   @@index([userType], map: "User_userType_idx")
   @@map("user")
+}
+
+model SalesTeamMember {
+  id                 Int                 @id @default(autoincrement())
+  userId             Int                 @unique
+  employeeId         String?             @unique
+  department         String?
+  territory          String?
+  totalPoints        Decimal             @default(0.00) @db.Decimal(10, 2)
+  availablePoints    Decimal             @default(0.00) @db.Decimal(10, 2)
+  withdrawnPoints    Decimal             @default(0.00) @db.Decimal(10, 2)
+  totalProspects     Int                 @default(0)
+  totalConversions   Int                 @default(0)
+  conversionRate     Decimal             @default(0.00) @db.Decimal(5, 2)
+  fraudCount         Int                 @default(0)
+  status             SalesTeamStatus     @default(ACTIVE)
+  joinedAt           DateTime            @default(now())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  pointTransactions  PointTransaction[]
+  proofSubmissions   ProofSubmission[]
+  prospects          ProspectClient[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawalRequests WithdrawalRequest[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([territory])
+  @@map("salesteammember")
+}
+
+model ProspectClient {
+  id                      Int                @id @default(autoincrement())
+  salesMemberId           Int
+  companyName             String
+  contactPerson           String
+  email                   String
+  phone                   String
+  alternatePhone          String?
+  address                 String?
+  city                    String?
+  state                   String?
+  country                 String?
+  gpsLatitude             Decimal?           @db.Decimal(10, 8)
+  gpsLongitude            Decimal?           @db.Decimal(11, 8)
+  businessType            String?
+  industryCategory        String?
+  companySize             String?
+  annualRevenue           String?
+  currentSoftware         String?            @db.Text
+  painPoints              String?            @db.Text
+  budgetRange             String?
+  decisionMaker           String?
+  purchaseTimeline        String?
+  interestedServices      String?            @db.LongText
+  specificRequirements    String?            @db.Text
+  competitorUsage         String?            @db.Text
+  status                  ProspectStatus     @default(PENDING_VERIFICATION)
+  convertedToClientId     Int?               @unique
+  convertedAt             DateTime?
+  pointsAwarded           Decimal            @default(0.00) @db.Decimal(10, 2)
+  conversionPointsAwarded Decimal            @default(0.00) @db.Decimal(10, 2)
+  verificationStatus      VerificationStatus @default(PENDING)
+  verifiedById            Int?
+  verifiedAt              DateTime?
+  fraudFlag               Boolean            @default(false)
+  fraudReason             String?            @db.Text
+  visitDate               DateTime?
+  followUpDate            DateTime?
+  notes                   String?            @db.Text
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  pointTransactions       PointTransaction[]
+  proofSubmissions        ProofSubmission[]
+  convertedClient         Client?            @relation(fields: [convertedToClientId], references: [id])
+  salesMember             SalesTeamMember    @relation(fields: [salesMemberId], references: [id])
+  verifiedBy              User?              @relation("ProspectVerifier", fields: [verifiedById], references: [id])
+
+  @@index([salesMemberId])
+  @@index([status])
+  @@index([verificationStatus])
+  @@index([email])
+  @@index([convertedToClientId])
+  @@index([verifiedById], map: "prospectclient_verifiedById_fkey")
+  @@map("prospectclient")
+}
+
+model ProofSubmission {
+  id                 Int                @id @default(autoincrement())
+  prospectId         Int
+  submittedById      Int
+  proofType          ProofType
+  fileUrl            String?            @db.LongText
+  gpsLatitude        Decimal?           @db.Decimal(10, 8)
+  gpsLongitude       Decimal?           @db.Decimal(11, 8)
+  timestamp          DateTime           @default(now())
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedById       Int?
+  verifiedAt         DateTime?
+  verificationNotes  String?            @db.Text
+  metadata           String?            @db.LongText
+  createdAt          DateTime           @default(now())
+  prospect           ProspectClient     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  submittedBy        SalesTeamMember    @relation(fields: [submittedById], references: [id])
+  verifiedBy         User?              @relation("ProofVerifier", fields: [verifiedById], references: [id])
+
+  @@index([prospectId])
+  @@index([submittedById])
+  @@index([verificationStatus])
+  @@index([verifiedById], map: "proofsubmission_verifiedById_fkey")
+  @@map("proofsubmission")
+}
+
+model PointTransaction {
+  id              Int                  @id @default(autoincrement())
+  salesMemberId   Int
+  prospectId      Int?
+  transactionType PointTransactionType
+  points          Decimal              @db.Decimal(10, 2)
+  balanceBefore   Decimal              @db.Decimal(10, 2)
+  balanceAfter    Decimal              @db.Decimal(10, 2)
+  reason          String
+  description     String?              @db.Text
+  processedById   Int?
+  approvedById    Int?
+  metadata        String?              @db.LongText
+  createdAt       DateTime             @default(now())
+  approvedBy      User?                @relation("TransactionApprover", fields: [approvedById], references: [id])
+  processedBy     User?                @relation("TransactionProcessor", fields: [processedById], references: [id])
+  prospect        ProspectClient?      @relation(fields: [prospectId], references: [id])
+  salesMember     SalesTeamMember      @relation(fields: [salesMemberId], references: [id])
+
+  @@index([salesMemberId])
+  @@index([transactionType])
+  @@index([createdAt])
+  @@index([approvedById], map: "pointtransaction_approvedById_fkey")
+  @@index([processedById], map: "pointtransaction_processedById_fkey")
+  @@index([prospectId], map: "pointtransaction_prospectId_fkey")
+  @@map("pointtransaction")
+}
+
+model WithdrawalRequest {
+  id                   Int              @id @default(autoincrement())
+  requestNumber        String           @unique
+  salesMemberId        Int
+  pointsRequested      Decimal          @db.Decimal(10, 2)
+  amountInCurrency     Decimal          @db.Decimal(10, 2)
+  currency             String           @default("USD")
+  paymentMethod        String
+  paymentDetails       String?          @db.LongText
+  status               WithdrawalStatus @default(PENDING)
+  requestedAt          DateTime         @default(now())
+  processedById        Int?
+  processedAt          DateTime?
+  processingNotes      String?          @db.Text
+  paidById             Int?
+  paidAt               DateTime?
+  transactionReference String?
+  paymentProof         String?
+  rejectionReason      String?          @db.Text
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  paidBy               User?            @relation("WithdrawalPayer", fields: [paidById], references: [id])
+  processedBy          User?            @relation("WithdrawalProcessor", fields: [processedById], references: [id])
+  salesMember          SalesTeamMember  @relation(fields: [salesMemberId], references: [id])
+
+  @@index([salesMemberId])
+  @@index([status])
+  @@index([requestedAt])
+  @@index([paidById], map: "withdrawalrequest_paidById_fkey")
+  @@index([processedById], map: "withdrawalrequest_processedById_fkey")
+  @@map("withdrawalrequest")
+}
+
+model UserApplication {
+  id            Int               @id @default(autoincrement())
+  userType      UserType
+  firstName     String
+  lastName      String
+  email         String            @unique
+  phoneNumber   String?
+  username      String            @unique
+  passwordHash  String
+  reason        String?           @db.Text
+  status        ApplicationStatus @default(PENDING)
+  adminNotes    String?           @db.Text
+  processedAt   DateTime?
+  processedById Int?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@map("userapplication")
+}
+
+model Investor {
+  id              Int                  @id @default(autoincrement())
+  userId          Int                  @unique
+  commissionType  String               @default("PERCENTAGE")
+  commissionValue Decimal              @db.Decimal(10, 2)
+  totalEarnings   Decimal              @default(0.00) @db.Decimal(10, 2)
+  paidEarnings    Decimal              @default(0.00) @db.Decimal(10, 2)
+  pendingEarnings Decimal              @default(0.00) @db.Decimal(10, 2)
+  walletBalance   Decimal              @default(0.00) @db.Decimal(10, 2)
+  status          String               @default("ACTIVE")
+  joinedAt        DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  user            User                 @relation(fields: [userId], references: [id])
+  commissions     InvestorCommission[]
+  payouts         InvestorPayout[]
+
+  @@index([userId])
+  @@map("investor")
+}
+
+model InvestorCommission {
+  id               Int      @id @default(autoincrement())
+  investorId       Int
+  invoiceId        Int
+  invoiceAmount    Decimal  @db.Decimal(10, 2)
+  commissionAmount Decimal  @db.Decimal(10, 2)
+  status           String   @default("PAID")
+  createdAt        DateTime @default(now())
+  investor         Investor @relation(fields: [investorId], references: [id])
+  invoice          Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@index([investorId])
+  @@index([invoiceId])
+  @@map("investorcommission")
+}
+
+model InvestorPayout {
+  id            Int       @id @default(autoincrement())
+  investorId    Int
+  amount        Decimal   @db.Decimal(10, 2)
+  method        String
+  details       String?   @db.Text
+  status        String    @default("PENDING")
+  transactionId String?
+  processedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  investor      Investor  @relation(fields: [investorId], references: [id])
+
+  @@index([investorId])
+  @@index([status])
+  @@map("investorpayout")
+}
+
+model GuestActivity {
+  id           Int            @id @default(autoincrement())
+  ipAddress    String
+  email        String?
+  name         String?
+  phone        String?
+  ticketId     Int?
+  activityType String         @default("TICKET_INITIATION")
+  userAgent    String?        @db.Text
+  createdAt    DateTime       @default(now())
+  expiresAt    DateTime
+  ticket       SupportTicket? @relation(fields: [ticketId], references: [id])
+
+  @@index([ipAddress, createdAt])
+  @@index([expiresAt])
+  @@index([ticketId])
+  @@map("guestactivity")
 }
 
 enum ClientStatus {
@@ -1161,6 +1468,7 @@ enum UserType {
   STAFF
   RESELLER
   CLIENT
+  INVESTOR
 }
 
 enum UserStatus {
@@ -1175,4 +1483,62 @@ enum ResellerType {
   PROFESSIONAL
   ENTERPRISE
   WHITELABEL
+}
+
+enum SalesTeamStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum ProspectStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  CONTACTED
+  NEGOTIATING
+  CONVERTED
+  LOST
+  FRAUD
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REQUIRES_MORE_INFO
+}
+
+enum ProofType {
+  PHOTO
+  GPS_LOCATION
+  SIGNATURE
+  BUSINESS_CARD
+  MEETING_NOTES
+  OTHER
+}
+
+enum PointTransactionType {
+  PROSPECT_ENTRY
+  CONVERSION_BONUS
+  FRAUD_DEDUCTION
+  ADMIN_ADJUSTMENT
+  WITHDRAWAL
+  BONUS
+  PENALTY
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  PAID
+  REJECTED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

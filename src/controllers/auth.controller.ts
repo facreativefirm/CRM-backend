@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { UserType, UserStatus } from '@prisma/client';
+import { sendEmail, EmailTemplates } from '../services/email.service';
 
 const signToken = (id: number) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
@@ -12,43 +13,114 @@ const signToken = (id: number) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-    const { username, email, password, firstName, lastName, phoneNumber, userType } = req.body;
+    const { username, email, password, firstName, lastName, phoneNumber, whatsAppNumber, userType, resellerId } = req.body;
 
-    // Check if user exists
+    // Check for existing user (including guests)
     const existingUser = await prisma.user.findFirst({
         where: {
             OR: [{ email }, { username }],
         },
-    });
+        include: { client: true }
+    }) as any;
+
+    let userToUpdate = null;
 
     if (existingUser) {
-        throw new AppError('User with this email or username already exists', 400);
+        // Migration Logic: If the existing account is a GUEST account, we allow "migration"
+        // provided the email matches. If username matches but it's another person's guest account, we still block.
+        if (existingUser.client?.isGuest && existingUser.email === email) {
+            userToUpdate = existingUser;
+        } else {
+            throw new AppError('User with this email or username already exists', 400);
+        }
     }
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create user
-    const newUser = await prisma.user.create({
-        data: {
-            username,
-            email,
-            passwordHash,
-            firstName,
-            lastName,
-            phoneNumber,
-            userType: (userType as UserType) || UserType.CLIENT,
-            status: UserStatus.ACTIVE,
-        },
-    });
-
-    // If it's a client, create an empty client profile
-    if (newUser.userType === UserType.CLIENT) {
-        await prisma.client.create({
+    let user;
+    if (userToUpdate) {
+        // 1. Migrate Guest to Full Client
+        user = await prisma.user.update({
+            where: { id: userToUpdate.id },
             data: {
-                userId: newUser.id,
-            },
+                username, // Update to their chosen username
+                passwordHash,
+                firstName,
+                lastName,
+                phoneNumber,
+                whatsAppNumber,
+                userType: (userType as UserType) || UserType.CLIENT,
+                status: UserStatus.ACTIVE,
+                client: {
+                    update: {
+                        isGuest: false, // No longer a guest
+                        resellerId: resellerId ? parseInt(resellerId.toString()) : null
+                    }
+                }
+            }
         });
+    } else {
+        // 2. Standard Registration
+        user = await prisma.user.create({
+            data: {
+                username,
+                email,
+                passwordHash,
+                firstName,
+                lastName,
+                phoneNumber,
+                whatsAppNumber,
+                userType: (userType as UserType) || UserType.CLIENT,
+                status: UserStatus.ACTIVE,
+                client: {
+                    create: {
+                        resellerId: resellerId ? parseInt(resellerId.toString()) : null
+                    }
+                }
+            }
+        });
+    }
+
+    const newUser = user;
+    const clientRecord = await prisma.client.findUnique({ where: { userId: newUser.id } });
+    if (clientRecord) {
+        // Sales Team Tracking: Link prospect to client if matches
+        try {
+            const { salesTeamService } = await import('../services/salesTeam.service');
+            await salesTeamService.linkProspectToClient(email, phoneNumber, clientRecord.id);
+        } catch (err) {
+            console.error('[SalesTeam] Failed to link prospect:', err);
+        }
+    }
+
+    // Send Emails
+    try {
+        const { subject, body } = EmailTemplates.welcome(firstName);
+        await sendEmail(email, subject, body);
+
+        // Notify Admins
+        const admins = await prisma.user.findMany({
+            where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN] }, status: 'ACTIVE' },
+            select: { email: true }
+        });
+
+        const adminNotification = EmailTemplates.adminTransitionNotification(
+            'New User Registration',
+            `User: ${firstName} ${lastName} (${email})\nType: ${userType || 'CLIENT'}\nUsername: ${username}`
+        );
+
+        for (const admin of admins) {
+            if (admin.email) {
+                try {
+                    await sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                } catch (sendErr) {
+                    console.error(`Failed to send registration email to admin ${admin.email}:`, sendErr);
+                }
+            }
+        }
+    } catch (emailError) {
+        console.error('Registration email failed:', emailError);
     }
 
     const token = signToken(newUser.id);
@@ -65,6 +137,7 @@ export const register = async (req: Request, res: Response) => {
                 lastName: newUser.lastName,
                 userType: newUser.userType,
                 status: newUser.status,
+                whatsAppNumber: newUser.whatsAppNumber
             },
         },
     });
@@ -134,6 +207,8 @@ export const login = async (req: Request, res: Response) => {
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
+                phoneNumber: user.phoneNumber,
+                whatsAppNumber: user.whatsAppNumber,
                 userType: user.userType,
                 status: user.status,
             },
@@ -147,6 +222,7 @@ export const me = async (req: any, res: Response) => {
         include: {
             client: true,
             staff: true,
+            salesTeamMember: true,
         },
     });
 

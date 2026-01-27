@@ -9,6 +9,10 @@ const router = Router();
 
 router.use(protect);
 
+// IMPORTANT: Specific routes MUST come before parameterized routes
+// Admin only: Bulk provision (must be before /:id routes)
+router.post('/bulk-provision', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), servicesController.bulkProvision);
+
 router.get('/', servicesController.getServices);
 router.get('/:id', servicesController.getService);
 

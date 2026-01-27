@@ -8,6 +8,7 @@ import emailService from '../services/email.service';
 import * as notificationService from '../services/notificationService';
 import * as orderService from '../services/orderService';
 import * as invoiceService from '../services/invoiceService';
+import { InvestorService } from '../services/investor.service';
 
 /**
  * Currency Management
@@ -140,7 +141,7 @@ export const verifyTransaction = async (req: AuthRequest, res: Response) => {
     const { action } = req.body; // 'APPROVE' or 'REJECT'
 
     const transaction = await prisma.transaction.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id as string) },
         include: {
             invoice: {
                 include: {
@@ -153,10 +154,18 @@ export const verifyTransaction = async (req: AuthRequest, res: Response) => {
     });
 
     if (!transaction) throw new AppError('Transaction not found', 404);
-    if (transaction.status !== 'PENDING') throw new AppError('Transaction is not pending', 400);
+    if (transaction.status !== 'PENDING') {
+        const msg = `Transaction is already ${transaction.status.toLowerCase()}`;
+        if ((transaction.status === 'SUCCESS' && action === 'APPROVE') ||
+            (transaction.status === 'FAILED' && action === 'REJECT')) {
+            return res.status(200).json({ status: 'success', message: msg });
+        }
+        throw new AppError(msg, 400);
+    }
 
     const invoice = transaction.invoice;
     const clientEmail = invoice.client.user.email;
+    const clientName = `${invoice.client.user.firstName} ${invoice.client.user.lastName}`;
     const invoiceNumber = invoice.invoiceNumber || invoice.id.toString();
 
     if (action === 'APPROVE') {
@@ -179,35 +188,75 @@ export const verifyTransaction = async (req: AuthRequest, res: Response) => {
             })
         ]);
 
-        // Post-payment actions if fully paid
-        if (newStatus === 'PAID') {
-            // 1. Process Order Completion if linked
-            if (invoice.orderId) {
-                await orderService.updateOrderStatus(
-                    invoice.orderId,
-                    OrderStatus.COMPLETED,
-                    req.user?.email || 'Admin',
-                    'Transaction approved manually'
-                );
-            }
+        // Post-payment actions (trapped in try-catch to ensure we don't return 500 if payment succeeded)
+        try {
+            if (newStatus === 'PAID') {
+                // 1. Process Order Completion if linked
+                if (invoice.orderId) {
+                    await orderService.updateOrderStatus(
+                        invoice.orderId,
+                        OrderStatus.COMPLETED,
+                        req.user?.email || 'Admin',
+                        'Transaction approved manually'
+                    );
+                }
 
-            // 2. Process Renewals (Domains & Services)
-            await invoiceService.processInvoiceRenewals(invoice.id);
+                // 2. Process Renewals (Domains & Services)
+                await invoiceService.processInvoiceRenewals(invoice.id);
+
+                // 3. Distribute Investor Commissions
+                await InvestorService.distributeCommissions(invoice.id, invoice.subtotal);
+            }
+        } catch (postErr) {
+            console.error('[VerifyTransaction] Post-approval task failed:', postErr);
         }
 
-        // Email Notification
-        const emailData = emailService.EmailTemplates.invoicePaid(invoiceNumber);
-        await emailService.sendEmail(clientEmail, emailData.subject, emailData.body);
+        // Notifications (Client)
+        try {
+            const emailData = emailService.EmailTemplates.invoicePaid(invoiceNumber);
+            await emailService.sendEmail(clientEmail, emailData.subject, emailData.body);
+        } catch (clientEmailErr) {
+            console.error(`Failed to send payment confirmation to client ${clientEmail}:`, clientEmailErr);
+        }
+
+        // Notifications (Admins)
+        try {
+            const admins = await prisma.user.findMany({
+                where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN, 'STAFF'] as any }, status: 'ACTIVE' },
+                select: { email: true }
+            });
+
+            const adminNotification = emailService.EmailTemplates.adminTransitionNotification(
+                'Invoice Payment Received',
+                `Invoice: #${invoiceNumber}\nClient: ${clientName}\nAmount: ${transaction.amount}\nTotal Paid: ${newAmountPaid}\nMethod: ${transaction.gateway}\nTransaction Ref: ${transaction.transactionId}`
+            );
+
+            for (const admin of admins) {
+                if (admin.email) {
+                    try {
+                        await emailService.sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                    } catch (sendErr) {
+                        console.error(`Failed to send payment notification to admin ${admin.email}:`, sendErr);
+                    }
+                }
+            }
+        } catch (adminEmailError) {
+            console.error('Failed to send admin payment notifications:', adminEmailError);
+        }
 
         // Floating Notification
         if (invoice.client.user.id) {
-            await notificationService.createNotification(
-                invoice.client.user.id,
-                'SUCCESS',
-                'Payment Approved',
-                `Your payment of ${transaction.amount} for Invoice #${invoiceNumber} has been approved.`,
-                `/client/invoices/${invoice.id}`
-            );
+            try {
+                await notificationService.createNotification(
+                    invoice.client.user.id,
+                    'SUCCESS',
+                    'Payment Approved',
+                    `Your payment of ${transaction.amount} for Invoice #${invoiceNumber} has been approved.`,
+                    `/client/invoices/${invoice.id}`
+                );
+            } catch (notifErr) {
+                console.error('Failed to create in-app notification:', notifErr);
+            }
         }
 
     } else if (action === 'REJECT') {
@@ -216,19 +265,22 @@ export const verifyTransaction = async (req: AuthRequest, res: Response) => {
             data: { status: 'FAILED' }
         });
 
-        // Email Notification
-        const emailData = emailService.EmailTemplates.paymentRejected(invoiceNumber, 'Admin Declined');
-        await emailService.sendEmail(clientEmail, emailData.subject, emailData.body);
+        // Notifications
+        try {
+            const emailData = emailService.EmailTemplates.paymentRejected(invoiceNumber, 'Admin Declined');
+            await emailService.sendEmail(clientEmail, emailData.subject, emailData.body);
 
-        // Floating Notification
-        if (invoice.client.user.id) {
-            await notificationService.createNotification(
-                invoice.client.user.id,
-                'ERROR',
-                'Payment Rejected',
-                `Your payment for Invoice #${invoiceNumber} was rejected. Please contact support.`,
-                `/client/invoices/${invoice.id}`
-            );
+            if (invoice.client.user.id) {
+                await notificationService.createNotification(
+                    invoice.client.user.id,
+                    'ERROR',
+                    'Payment Rejected',
+                    `Your payment for Invoice #${invoiceNumber} was rejected. Please contact support.`,
+                    `/client/invoices/${invoice.id}`
+                );
+            }
+        } catch (rejErr) {
+            console.error('Error during rejection notification:', rejErr);
         }
     } else {
         throw new AppError('Invalid action', 400);
@@ -248,7 +300,7 @@ export const requestRefund = async (req: AuthRequest, res: Response) => {
     const user = req.user!;
 
     const transaction = await prisma.transaction.findUnique({
-        where: { id: parseInt(transactionId) },
+        where: { id: parseInt(transactionId as string) },
         include: { invoice: true }
     });
 
@@ -258,7 +310,7 @@ export const requestRefund = async (req: AuthRequest, res: Response) => {
     // Validate refund amount against transaction total
     const existingRefunds = await prisma.refund.findMany({
         where: {
-            transactionId: parseInt(transactionId),
+            transactionId: parseInt(transactionId as string),
             status: { not: 'REJECTED' }
         }
     });
@@ -285,7 +337,7 @@ export const requestRefund = async (req: AuthRequest, res: Response) => {
 
     const refund = await prisma.refund.create({
         data: {
-            transactionId: parseInt(transactionId),
+            transactionId: parseInt(transactionId as string),
             amount: new Prisma.Decimal(amount),
             reason,
             status,
@@ -322,12 +374,12 @@ export const authorizeRefund = async (req: AuthRequest, res: Response) => {
         throw new AppError('Unauthorized', 403);
     }
 
-    const refund = await prisma.refund.findUnique({ where: { id: parseInt(id) } });
+    const refund = await prisma.refund.findUnique({ where: { id: parseInt(id as string) } });
     if (!refund) throw new AppError('Refund request not found', 404);
     if (refund.status !== 'PENDING_AUTHORIZATION') throw new AppError('Refund is not in authorization phase', 400);
 
     const updatedRefund = await prisma.refund.update({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id as string) },
         data: {
             status: 'PENDING_APPROVAL',
             authorizedById: user.id
@@ -346,13 +398,13 @@ export const approveRefund = async (req: AuthRequest, res: Response) => {
         throw new AppError('Only Super Admins can approve refunds', 403);
     }
 
-    const refund = await prisma.refund.findUnique({ where: { id: parseInt(id) } });
+    const refund = await prisma.refund.findUnique({ where: { id: parseInt(id as string) } });
     if (!refund) throw new AppError('Refund request not found', 404);
     if (refund.status !== 'PENDING_APPROVAL') throw new AppError('Refund is not in approval phase', 400);
 
     if (action === 'REJECT') {
         const updatedRefund = await prisma.refund.update({
-            where: { id: parseInt(id) },
+            where: { id: parseInt(id as string) },
             data: {
                 status: 'REJECTED',
                 rejectionReason
@@ -379,7 +431,7 @@ export const approveRefund = async (req: AuthRequest, res: Response) => {
     }
 
     const updatedRefund = await prisma.refund.update({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id as string) },
         data: {
             status: 'COMPLETED',
             approvedById: user.id

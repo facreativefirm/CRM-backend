@@ -35,7 +35,7 @@ export default defineConfig({
         // eg: microsoft/typescript, typescript, etc.
         exclude: [
             '@prisma/client',
-            'bcrypt'
+            'bcryptjs'
         ],
     },
 });

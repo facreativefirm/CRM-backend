@@ -12,9 +12,9 @@ router.use(protect);
 // Dashboard stats (Available to all authenticated users, filtered internally)
 router.get('/dashboard', reportsController.getDashboardStats);
 
-// Advanced Reports (Admin only)
+// Advanced Reports
 router.get('/revenue', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), reportsController.getRevenueReport);
-router.get('/monthly-revenue', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), reportsController.getMonthlyRevenue);
+router.get('/monthly-revenue', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.RESELLER), reportsController.getMonthlyRevenue);
 router.get('/clients', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), reportsController.getClientStats);
 
 export default router;

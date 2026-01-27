@@ -7,12 +7,20 @@ import { UserStatus, UserType } from '@prisma/client';
  * List all users with filtering
  */
 export const getUsers = async (req: any, res: Response) => {
-    const { type, status, reseller } = req.query;
+    const { type, status, email, search } = req.query;
 
     const users = await prisma.user.findMany({
         where: {
             ...(type && { userType: type as UserType }),
             ...(status && { status: status as UserStatus }),
+            ...(email && { email: email as string }),
+            ...(search && {
+                OR: [
+                    { firstName: { contains: search as string } },
+                    { lastName: { contains: search as string } },
+                    { email: { contains: search as string } },
+                ]
+            }),
         },
         include: {
             client: true,
@@ -33,7 +41,7 @@ export const getUsers = async (req: any, res: Response) => {
  */
 export const getUser = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         include: {
             client: true,
             staff: true,
@@ -54,10 +62,10 @@ export const getUser = async (req: Request, res: Response) => {
  * Update user basic info and status
  */
 export const updateUser = async (req: Request, res: Response) => {
-    const { firstName, lastName, status, userType, resellerType, commissionRate } = req.body;
+    const { firstName, lastName, status, userType, resellerType, commissionRate, phoneNumber, whatsAppNumber } = req.body;
 
     const user = await prisma.user.update({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         data: {
             firstName,
             lastName,
@@ -65,6 +73,8 @@ export const updateUser = async (req: Request, res: Response) => {
             userType,
             resellerType,
             commissionRate,
+            phoneNumber,
+            whatsAppNumber,
         },
     });
 
@@ -79,7 +89,7 @@ export const updateUser = async (req: Request, res: Response) => {
  */
 export const deleteUser = async (req: Request, res: Response) => {
     await prisma.user.delete({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
     });
 
     res.status(204).json({

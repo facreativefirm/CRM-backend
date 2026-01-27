@@ -56,7 +56,25 @@ export const createOrder = async (input: CreateOrderInput) => {
         throw new AppError('Client not found', 404);
     }
 
-    // 2. Validate Promo Code if provided
+    // 4. Calculate totals and prepare order items
+    let orderTotal = new Prisma.Decimal(0);
+    const preparedItems: any[] = [];
+
+    // Effective Reseller ID for pricing calculations - prioritize explicit input, fallback to client's assigned reseller
+    const effectiveResellerId = resellerId ? parseInt(resellerId.toString()) : client.resellerId;
+
+    // Fetch Reseller details for global markup calculations
+    let reseller = null;
+    if (effectiveResellerId) {
+        reseller = await prisma.user.findUnique({
+            where: { id: effectiveResellerId }
+        });
+        if (reseller) {
+            console.log(`[DEBUG] Reseller context found: ${reseller.id} (Brand: ${reseller.username})`);
+        }
+    }
+
+    // 3. Validate Promo Code if provided
     let promotion = null;
     if (promoCode) {
         promotion = await prisma.promotion.findUnique({
@@ -77,15 +95,11 @@ export const createOrder = async (input: CreateOrderInput) => {
         }
     }
 
-    // 3. Calculate totals and prepare order items
-    let orderTotal = new Prisma.Decimal(0);
-    const preparedItems: any[] = [];
-
     for (const item of items) {
         const product = await prisma.product.findUnique({
             where: { id: item.productId },
             include: {
-                resellerProducts: resellerId ? { where: { resellerId } } : false,
+                resellerProducts: effectiveResellerId ? { where: { resellerId: effectiveResellerId } } : false,
             },
         });
 
@@ -93,7 +107,22 @@ export const createOrder = async (input: CreateOrderInput) => {
             throw new AppError(`Product with ID ${item.productId} not found`, 404);
         }
 
-        const resellerOverride = product.resellerProducts?.[0];
+        let resellerOverride = product.resellerProducts?.[0];
+
+        // Global Markup Fallback
+        if (!resellerOverride && reseller?.markupRate) {
+            console.log(`[DEBUG] Applying global markup ${reseller.markupRate}% for reseller ${effectiveResellerId}`);
+            resellerOverride = {
+                markupPercentage: reseller.markupRate,
+                customPrice: null,
+            } as any;
+        }
+
+        console.log(`[DEBUG] Order Item Resolve - Product: ${product.name}, EffectiveResellerID: ${effectiveResellerId}, OverrideFound: ${!!resellerOverride}`);
+        if (resellerOverride) {
+            console.log(`[DEBUG] Override Details - CustomPrice: ${resellerOverride.customPrice}, Markup%: ${resellerOverride.markupPercentage}`);
+        }
+
         const pricing = calculateProductPrice(
             product,
             item.billingCycle as BillingCycle,
@@ -101,7 +130,7 @@ export const createOrder = async (input: CreateOrderInput) => {
             client.group as any
         );
 
-        console.log(`[DEBUG] Pricing for product ${product.name}:`, pricing);
+        console.log(`[DEBUG] Final Pricing Calc - Base: ${pricing.basePrice}, Cycle: ${pricing.cycle}, Final: ${pricing.finalPrice}`);
 
         let itemTotal = pricing.finalPrice.mul(item.quantity).add(pricing.setupFee);
 
@@ -234,6 +263,31 @@ export const createOrder = async (input: CreateOrderInput) => {
         // Send Order Confirmation
         const { subject, body } = EmailTemplates.orderConfirmation(order.orderNumber, order.totalAmount.toString());
         sendEmail(client.user.email, subject, body).catch(e => console.error("Email notification failed:", e));
+
+        // Notify Admins
+        try {
+            const admins = await prisma.user.findMany({
+                where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN] }, status: 'ACTIVE' },
+                select: { email: true }
+            });
+
+            const adminNotification = EmailTemplates.adminTransitionNotification(
+                'New Order Received',
+                `Order: #${order.orderNumber}\nClient: ${client.user.firstName} ${client.user.lastName}\nTotal: ${order.totalAmount}\nItems: ${order.items.length}`
+            );
+
+            for (const admin of admins) {
+                if (admin.email) {
+                    try {
+                        await sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                    } catch (sendErr) {
+                        console.error(`Failed to send order notification to admin ${admin.email}:`, sendErr);
+                    }
+                }
+            }
+        } catch (adminEmailError) {
+            console.error('Failed to send admin order notification:', adminEmailError);
+        }
 
         // Create Invoice
         if (order.status === OrderStatus.PENDING) {
@@ -490,6 +544,27 @@ export const updateOrderStatus = async (orderId: number, newStatus: OrderStatus,
                     body,
                     attachments
                 );
+
+                // Notify Admins
+                const admins = await prisma.user.findMany({
+                    where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN] }, status: 'ACTIVE' },
+                    select: { email: true }
+                });
+
+                const adminNotification = EmailTemplates.adminTransitionNotification(
+                    'Order Activation Complete',
+                    `Order #${order.orderNumber} has been fully activated.\nClient: ${order.client.user.firstName} ${order.client.user.lastName}`
+                );
+
+                for (const admin of admins) {
+                    if (admin.email) {
+                        try {
+                            await sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                        } catch (sendErr) {
+                            console.error(`Failed to send completion notification to admin ${admin.email}:`, sendErr);
+                        }
+                    }
+                }
             } catch (e) {
                 console.error("Delayed completion email failed:", e);
             }

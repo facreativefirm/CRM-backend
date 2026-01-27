@@ -9,10 +9,12 @@ import { updateDomainSchema, registerDomainSchema, tldSchema } from '../../utils
 
 const router = Router();
 
+// TLDs - Public for pricing display
+router.get('/tlds', tldsController.getTLDs);
+
 router.use(protect);
 
 // TLD Management (Admins Only)
-router.get('/tlds', tldsController.getTLDs);
 router.post('/tlds', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), validate(tldSchema), tldsController.createTLD);
 router.patch('/tlds/:id', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), validate(tldSchema), tldsController.updateTLD);
 router.delete('/tlds/:id', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), tldsController.deleteTLD);

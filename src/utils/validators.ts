@@ -10,6 +10,7 @@ export const registerSchema = z.object({
         firstName: z.string().optional(),
         lastName: z.string().optional(),
         phoneNumber: z.string().optional(),
+        whatsAppNumber: z.string().optional(),
         userType: z.nativeEnum(UserType).optional(),
     }),
 });
@@ -33,6 +34,8 @@ export const updateUserSchema = z.object({
         userType: z.nativeEnum(UserType).optional(),
         resellerType: z.any().optional(), // Match ResellerType enum if needed
         commissionRate: z.number().optional(),
+        phoneNumber: z.string().optional(),
+        whatsAppNumber: z.string().optional(),
     }),
 });
 
@@ -56,6 +59,7 @@ export const createClientSchema = z.object({
         zip: z.string().optional(),
         country: z.string().optional(),
         phone: z.string().optional(),
+        whatsAppNumber: z.string().optional(),
     }),
 });
 
@@ -71,13 +75,16 @@ export const updateClientSchema = z.object({
 
         // Client fields
         companyName: z.string().optional(),
+        businessType: z.string().optional(),
+        taxId: z.string().optional(),
         status: z.nativeEnum(ClientStatus).optional(),
         currency: z.string().optional(),
         notes: z.string().optional(),
-        groupId: z.number().optional(),
+        groupId: z.number().nullable().optional(),
 
         // Contact fields (updates primary contact)
         phone: z.string().optional(),
+        whatsAppNumber: z.string().optional(),
         address1: z.string().optional(),
         address2: z.string().optional(),
         city: z.string().optional(),

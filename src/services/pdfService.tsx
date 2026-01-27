@@ -166,9 +166,11 @@ const styles = StyleSheet.create({
 interface InvoiceDocumentProps {
     invoice: any;
     appName: string;
+    taxName?: string;
+    currencySymbol?: string;
 }
 
-const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName }) => (
+const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName, taxName = 'Tax', currencySymbol = '$' }) => (
     <Document>
         <Page size="A4" style={styles.page}>
             <View style={styles.header}>
@@ -216,9 +218,9 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName }) =
                     <View key={item.id} style={styles.tableRow}>
                         <Text style={styles.tableColDescription}>{item.description}</Text>
                         <Text style={styles.tableColQty}>{item.quantity}</Text>
-                        <Text style={styles.tableColPrice}>${Number(item.unitPrice).toFixed(2)}</Text>
+                        <Text style={styles.tableColPrice}>{currencySymbol}{Number(item.unitPrice).toFixed(2)}</Text>
                         <Text style={styles.tableColTotal}>
-                            ${Number(item.total || (item.quantity * item.unitPrice)).toFixed(2)}
+                            {currencySymbol}{Number(item.total || (item.quantity * item.unitPrice)).toFixed(2)}
                         </Text>
                     </View>
                 ))}
@@ -228,15 +230,15 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName }) =
                 <View style={styles.totalsBox}>
                     <View style={styles.totalRow}>
                         <Text>Subtotal</Text>
-                        <Text>${Number(invoice.subtotal).toFixed(2)}</Text>
+                        <Text>{currencySymbol}{Number(invoice.subtotal).toFixed(2)}</Text>
                     </View>
                     <View style={styles.totalRow}>
-                        <Text>Tax</Text>
-                        <Text>${Number(invoice.taxAmount || 0).toFixed(2)}</Text>
+                        <Text>{taxName}</Text>
+                        <Text>{currencySymbol}{Number(invoice.taxAmount || 0).toFixed(2)}</Text>
                     </View>
                     <View style={styles.grandTotalRow}>
                         <Text style={styles.grandTotalLabel}>Total</Text>
-                        <Text style={styles.grandTotalAmount}>${Number(invoice.totalAmount).toFixed(2)}</Text>
+                        <Text style={styles.grandTotalAmount}>{currencySymbol}{Number(invoice.totalAmount).toFixed(2)}</Text>
                     </View>
                 </View>
             </View>
@@ -259,6 +261,6 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName }) =
 /**
  * Generate Invoice PDF Buffer
  */
-export const generateInvoicePDF = async (invoice: any, appName: string = 'WHMCS CRM'): Promise<Buffer> => {
-    return await renderToBuffer(<InvoiceDocument invoice={invoice} appName={appName} />);
+export const generateInvoicePDF = async (invoice: any, appName: string = 'WHMCS CRM', taxName: string = 'Tax', currencySymbol: string = '$'): Promise<Buffer> => {
+    return await renderToBuffer(<InvoiceDocument invoice={invoice} appName={appName} taxName={taxName} currencySymbol={currencySymbol} />);
 };

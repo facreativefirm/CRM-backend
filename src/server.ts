@@ -1,7 +1,6 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
+import './config/env';
 import express from 'express';
+import http from 'http';
 import { configureMiddleware } from './config/middleware';
 import routes from './routes';
 import { globalRateLimiter } from './middleware/rateLimit.middleware';
@@ -11,21 +10,39 @@ import { apiReference } from '@scalar/express-api-reference';
 import { openApiSpec } from './docs/openapi';
 import logger from './utils/logger';
 import { initCronJobs } from './services/cronService';
+import { initSocketService } from './services/socketService';
+import prisma from './config/database';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3006;
+
+// Test database connection on startup
+const testConnection = async () => {
+    try {
+        await prisma.$connect();
+        logger.info('✅ Database connection established successfully');
+    } catch (err) {
+        logger.error('❌ Failed to connect to the database on startup:', err instanceof Error ? err.message : err);
+    }
+};
 
 // Middleware
 configureMiddleware(app);
 
+// Trust proxy for production environments (behind Nginx, Cloudflare, etc.)
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
 app.use((req, res, next) => {
-    console.log(`[DEBUG] ${req.method} ${req.url}`);
+    if (process.env.NODE_ENV === 'development') {
+        logger.debug(`[DEBUG] ${req.method} ${req.url}`);
+    }
     next();
 });
 
 // Routes
-// SCOPE: To re-enable rate limiting, uncomment 'globalRateLimiter' in the line below
-app.use('/api', /* globalRateLimiter, */ blockBannedIPs, routes);
+app.use('/api', globalRateLimiter, blockBannedIPs, routes);
 
 // Health Check
 app.get('/health', (req, res) => {
@@ -138,7 +155,12 @@ app.use(
 
 // 404 Handler
 app.use((req, res, next) => {
-    console.error(`[404 NOT FOUND] ${req.method} ${req.url}`);
+    // Ignore socket.io requests in 404 handler - they should be handled by the HTTP server
+    if (req.url.startsWith('/socket.io')) {
+        return next();
+    }
+
+    logger.warn(`[404 NOT FOUND] ${req.method} ${req.url}`);
     res.status(404).json({
         status: 'error',
         message: `Route ${req.method} ${req.url} not found on this server.`
@@ -148,13 +170,19 @@ app.use((req, res, next) => {
 // Error handling
 app.use(errorHandler);
 
-console.log(`Starting WHMCS Backend in ${process.env.NODE_ENV || 'development'} mode...`);
-
 if (process.env.NODE_ENV !== 'test') {
+    testConnection();
     initCronJobs();
-    // Passenger often provides the port as a string/pipe, so we handle it gracefully
-    const server = app.listen(PORT, () => {
-        logger.info(`🚀 Server successfully started on port ${PORT}`);
+
+    // Create HTTP server
+    const server = http.createServer(app);
+
+    // Initialize Socket.IO
+    initSocketService(server);
+
+    // Listen on the HTTP server, NOT the app directly
+    server.listen(PORT, () => {
+        logger.info(`🚀 Server (HTTP + Socket.IO) successfully started on port ${PORT}`);
     });
 
     // Handle process signals for clean shutdown

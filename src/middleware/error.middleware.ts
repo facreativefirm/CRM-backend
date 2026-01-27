@@ -14,26 +14,40 @@ export class AppError extends Error {
     }
 }
 
+import { Prisma } from '@prisma/client';
+
 export const errorHandler = (
-    err: Error | AppError,
+    err: any,
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
-    let statusCode = 500;
-    let message = 'Internal Server Error';
+    let statusCode = err.statusCode || 500;
+    let message = err.message || 'Internal Server Error';
 
-    if (err instanceof AppError) {
-        statusCode = err.statusCode;
-        message = err.message;
-    } else {
+    // Handle Prisma errors
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+            statusCode = 400;
+            // Extract the field name if possible, otherwise generic
+            const target = (err.meta?.target as string[]) || [];
+            message = `A record with this ${target.join(', ') || 'value'} already exists.`;
+            if (message.includes('email')) message = "This email address is already in use by another account.";
+            if (message.includes('username')) message = "This username is already taken.";
+        }
+    }
+
+    if (!(err instanceof AppError)) {
         logger.error(`Unhandled Error: ${err.message}`);
-        logger.error(err.stack || '');
+        if (err.stack) logger.error(err.stack);
     }
 
     res.status(statusCode).json({
         status: 'error',
         message,
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+        ...(process.env.NODE_ENV === 'development' && {
+            stack: err.stack,
+            prismaCode: err instanceof Prisma.PrismaClientKnownRequestError ? err.code : undefined
+        }),
     });
 };

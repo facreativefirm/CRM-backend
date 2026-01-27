@@ -2,14 +2,49 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { UserType, ProductStatus } from '@prisma/client';
+import { UserType, ProductStatus, Prisma } from '@prisma/client';
 
 /**
  * List products with optional reseller customization inclusion
  */
 export const getProducts = async (req: AuthRequest, res: Response) => {
-    const { serviceId, type } = req.query;
-    const isReseller = req.user?.userType === UserType.RESELLER;
+    const { serviceId, type, host } = req.query;
+
+    // Determine context: Are we a reseller viewing our own dash, or a visitor on a reseller's site?
+    // Determine context: Are we a reseller viewing our own dash, or a visitor on a reseller's site?
+    let targetResellerId: number | null = null;
+    let globalMarkup: number = 0;
+
+    // Sanitize Host
+    let lookupHost = host as string;
+    if (lookupHost) {
+        lookupHost = lookupHost.trim().replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+    }
+
+    if (req.user?.userType === UserType.RESELLER) {
+        targetResellerId = req.user.id;
+    } else if (lookupHost) {
+        const hostWithoutWww = lookupHost.startsWith('www.') ? lookupHost.slice(4) : lookupHost;
+        // Public Storefront Access: Resolve reseller by domain
+        const reseller = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { customDomain: lookupHost },
+                    { customDomain: `www.${lookupHost}` },
+                    { customDomain: hostWithoutWww },
+                    { customDomain: `www.${hostWithoutWww}` }
+                ],
+                userType: UserType.RESELLER,
+                whiteLabelEnabled: true
+            },
+            select: { id: true, markupRate: true }
+        });
+        if (reseller) {
+            targetResellerId = reseller.id;
+            // Default 0 if null
+            globalMarkup = reseller.markupRate ? Number(reseller.markupRate) : 0;
+        }
+    }
 
     const products = await prisma.product.findMany({
         where: {
@@ -41,7 +76,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
             // updatedAt is EXCLUDED to prevent crashes from invalid dates
             productService: true,
             resellerProducts: {
-                where: isReseller && req.user ? { resellerId: req.user.id } : { id: -1 },
+                where: targetResellerId ? { resellerId: targetResellerId } : { id: -1 },
             },
         },
         orderBy: { name: 'asc' },
@@ -50,13 +85,37 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
     // Transform to apply reseller pricing/status if exists
     const transformedProducts = products.map(product => {
         const override = product.resellerProducts[0];
+        let multiplier = 1;
+        let pStatus = product.status;
+
+        // Priority 1: Specific Product Override
         if (override) {
+            pStatus = override.status as ProductStatus;
+
+            if (override.customPrice && Number(product.monthlyPrice) > 0) {
+                multiplier = Number(override.customPrice) / Number(product.monthlyPrice);
+            } else if (override.markupPercentage) {
+                multiplier = 1 + (Number(override.markupPercentage) / 100);
+            }
+        }
+        // Priority 2: Global Markup (Only if no specific override exists)
+        else if (targetResellerId && globalMarkup > 0) {
+            multiplier = 1 + (globalMarkup / 100);
+        }
+
+        if (multiplier !== 1 || override) {
             return {
                 ...product,
-                status: override.status as ProductStatus,
-                // We'll calculate actual price in a service later, but adding the raw override here
-                markupPercentage: override.markupPercentage,
-                customPrice: override.customPrice,
+                status: pStatus,
+
+                // Apply weighted multiplier to all pricing cycles
+                monthlyPrice: new Prisma.Decimal(Number(product.monthlyPrice) * multiplier),
+                quarterlyPrice: new Prisma.Decimal(Number(product.quarterlyPrice) * multiplier),
+                semiAnnualPrice: new Prisma.Decimal(Number(product.semiAnnualPrice) * multiplier),
+                annualPrice: new Prisma.Decimal(Number(product.annualPrice) * multiplier),
+                biennialPrice: new Prisma.Decimal(Number(product.biennialPrice) * multiplier),
+                triennialPrice: new Prisma.Decimal(Number(product.triennialPrice) * multiplier),
+
                 resellerOverride: true
             };
         }
@@ -75,9 +134,44 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
  */
 export const getProduct = async (req: AuthRequest, res: Response) => {
     try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
+        const { host } = req.query;
+
         if (isNaN(id)) {
             throw new AppError('Invalid product ID', 400);
+        }
+
+        // Determine context
+        let targetResellerId: number | null = null;
+        let globalMarkup: number = 0;
+
+        // Sanitize Host
+        let lookupHost = host as string;
+        if (lookupHost) {
+            lookupHost = lookupHost.trim().replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+        }
+
+        if (req.user?.userType === UserType.RESELLER) {
+            targetResellerId = req.user.id;
+        } else if (lookupHost) {
+            const hostWithoutWww = lookupHost.startsWith('www.') ? lookupHost.slice(4) : lookupHost;
+            const reseller = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { customDomain: lookupHost },
+                        { customDomain: `www.${lookupHost}` },
+                        { customDomain: hostWithoutWww },
+                        { customDomain: `www.${hostWithoutWww}` }
+                    ],
+                    userType: UserType.RESELLER,
+                    whiteLabelEnabled: true
+                },
+                select: { id: true, markupRate: true }
+            });
+            if (reseller) {
+                targetResellerId = reseller.id;
+                globalMarkup = reseller.markupRate ? Number(reseller.markupRate) : 0;
+            }
         }
 
         const product = await prisma.product.findUnique({
@@ -114,6 +208,9 @@ export const getProduct = async (req: AuthRequest, res: Response) => {
                         description: true
                     }
                 },
+                resellerProducts: {
+                    where: targetResellerId ? { resellerId: targetResellerId } : { id: -1 },
+                },
             }
         });
 
@@ -121,12 +218,37 @@ export const getProduct = async (req: AuthRequest, res: Response) => {
             throw new AppError('Product not found', 404);
         }
 
+        // Apply Reseller Pricing
+        const override = product.resellerProducts[0];
+        let multiplier = 1;
+
+        if (override) {
+            if (override.customPrice && Number(product.monthlyPrice) > 0) {
+                multiplier = Number(override.customPrice) / Number(product.monthlyPrice);
+            } else if (override.markupPercentage) {
+                multiplier = 1 + (Number(override.markupPercentage) / 100);
+            }
+        } else if (targetResellerId && globalMarkup > 0) {
+            multiplier = 1 + (globalMarkup / 100);
+        }
+
+        const transformedProduct = {
+            ...product,
+            monthlyPrice: new Prisma.Decimal(Number(product.monthlyPrice) * multiplier),
+            quarterlyPrice: new Prisma.Decimal(Number(product.quarterlyPrice) * multiplier),
+            semiAnnualPrice: new Prisma.Decimal(Number(product.semiAnnualPrice) * multiplier),
+            annualPrice: new Prisma.Decimal(Number(product.annualPrice) * multiplier),
+            biennialPrice: new Prisma.Decimal(Number(product.biennialPrice) * multiplier),
+            triennialPrice: new Prisma.Decimal(Number(product.triennialPrice) * multiplier),
+            resellerOverride: multiplier !== 1 || !!override
+        };
+
         res.status(200).json({
             status: 'success',
-            data: { product },
+            data: { product: transformedProduct },
         });
     } catch (error) {
-        console.error("Error in getProduct:", error); // Log for debugging
+        console.error("Error in getProduct:", error);
         if (error instanceof AppError) throw error;
         throw new AppError('Internal Server Error fetching product', 500);
     }
@@ -175,7 +297,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
  */
 export const updateProduct = async (req: AuthRequest, res: Response) => {
     try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const cleanedData = cleanProductData(req.body);
 
         console.log(`[DEBUG] Updating product ${id} with data:`, JSON.stringify(cleanedData));
@@ -240,7 +362,7 @@ export const customizeProductForReseller = async (req: AuthRequest, res: Respons
         where: {
             resellerId_productId: {
                 resellerId: req.user.id,
-                productId: parseInt(productId),
+                productId: parseInt(productId as string),
             },
         },
         update: {
@@ -250,7 +372,7 @@ export const customizeProductForReseller = async (req: AuthRequest, res: Respons
         },
         create: {
             resellerId: req.user.id,
-            productId: parseInt(productId),
+            productId: parseInt(productId as string),
             markupPercentage: markupPercentage || 20.0,
             customPrice,
             status: status || 'ACTIVE',
@@ -267,7 +389,7 @@ export const customizeProductForReseller = async (req: AuthRequest, res: Respons
  * Delete product (Admin Only)
  */
 export const deleteProduct = async (req: AuthRequest, res: Response) => {
-    const productId = parseInt(req.params.id);
+    const productId = parseInt(req.params.id as string);
 
     // Check if product has active services
     const serviceCount = await prisma.service.count({

@@ -8,8 +8,9 @@ import { UserType } from '@prisma/client';
 const router = Router();
 
 // Publicly viewable or protected depending on login
-router.get('/', protect, productsController.getProducts);
-router.get('/:id', protect, productsController.getProduct);
+// Publicly viewable
+router.get('/', productsController.getProducts);
+router.get('/:id', productsController.getProduct);
 
 // Admin Management
 router.post('/', protect, restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), validate(productSchema), productsController.createProduct);

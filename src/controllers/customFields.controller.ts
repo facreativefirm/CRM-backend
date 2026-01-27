@@ -33,14 +33,14 @@ export const updateClientCustomValue = async (req: Request, res: Response) => {
     const value = await prisma.clientCustomFieldValue.upsert({
         where: {
             clientId_fieldId: {
-                clientId: parseInt(clientId),
-                fieldId: parseInt(fieldId),
+                clientId: parseInt(clientId as string),
+                fieldId: parseInt(fieldId as string),
             },
         },
         update: { fieldValue },
         create: {
-            clientId: parseInt(clientId),
-            fieldId: parseInt(fieldId),
+            clientId: parseInt(clientId as string),
+            fieldId: parseInt(fieldId as string),
             fieldValue,
         },
     });

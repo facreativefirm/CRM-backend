@@ -1,10 +1,12 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { InvoiceStatus, OrderStatus, Prisma } from '@prisma/client';
+import { InvoiceStatus, OrderStatus, Prisma, UserType } from '@prisma/client';
 import { MarketingService } from './marketingService';
 import { ResellerService } from './resellerService';
+import { InvestorService } from './investor.service';
 import { sendEmail, EmailTemplates } from './email.service';
 import { generateInvoicePDF } from './pdfService';
+import * as settingsService from './settingsService';
 
 /**
  * Generate a unique invoice number
@@ -19,8 +21,9 @@ const generateInvoiceNumber = () => {
 /**
  * Create Invoice from Order
  */
-export const createInvoiceFromOrder = async (orderId: number) => {
-    const order = await prisma.order.findUnique({
+export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.TransactionClient) => {
+    const db = tx || prisma;
+    const order = await db.order.findUnique({
         where: { id: orderId },
         include: {
             items: {
@@ -50,10 +53,11 @@ export const createInvoiceFromOrder = async (orderId: number) => {
         };
     });
 
-    const taxAmount = order.client.group?.taxExempt ? new Prisma.Decimal(0) : subtotal.mul(0.05); // 5% default tax
+    const currentTaxRate = await settingsService.getTaxRate();
+    const taxAmount = order.client.group?.taxExempt ? new Prisma.Decimal(0) : subtotal.mul(currentTaxRate);
     const totalAmount = subtotal.add(taxAmount);
 
-    const invoice = await prisma.invoice.create({
+    const invoice = await db.invoice.create({
         data: {
             invoiceNumber: generateInvoiceNumber(),
             clientId: order.clientId,
@@ -70,7 +74,7 @@ export const createInvoiceFromOrder = async (orderId: number) => {
     });
 
     // 3. Prepare Full Invoice for PDF (with items and user)
-    const fullInvoice = await prisma.invoice.findUnique({
+    const fullInvoice = await db.invoice.findUnique({
         where: { id: invoice.id },
         include: {
             items: true,
@@ -80,7 +84,10 @@ export const createInvoiceFromOrder = async (orderId: number) => {
 
     // 4. Send Email with PDF Attachment
     try {
-        const pdfBuffer = await generateInvoicePDF(fullInvoice);
+        const appName = await settingsService.getSetting('appName', 'WHMCS CRM');
+        const taxName = await settingsService.getSetting('taxName', 'Tax');
+        const currencySymbol = await settingsService.getCurrencySymbol();
+        const pdfBuffer = await generateInvoicePDF(fullInvoice, appName, taxName, currencySymbol);
         const { subject, body } = EmailTemplates.invoiceCreated(
             invoice.invoiceNumber,
             invoice.dueDate.toLocaleDateString(),
@@ -108,7 +115,8 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
 
     if (!invoice) throw new AppError('Invoice not found', 404);
 
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Increase timeout since we do order activation inside
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
 
         // 1. Create Transaction record
         const transaction = await tx.transaction.create({
@@ -136,11 +144,16 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
             }
         });
 
-        // 3. ATOMIC ORDER ACTIVATION: If Order exists and fully paid, process it immediately
+        // Distribute Investor Commissions on PAYMENT
+        if (newStatus === InvoiceStatus.PAID) {
+            await InvestorService.distributeCommissions(updatedInvoice.id, updatedInvoice.subtotal, tx);
+        }
+
+        // 3. ATOMIC ORDER ACTIVATION
+        let activatedOrder = null;
         if (updatedInvoice.orderId && newStatus === InvoiceStatus.PAID) {
             console.log(`[ATOMIC ACTIVATION] Invoice #${updatedInvoice.invoiceNumber} paid. Activating Order #${updatedInvoice.orderId}`);
 
-            // Fetch order with items to process
             const order = await tx.order.findUnique({
                 where: { id: updatedInvoice.orderId },
                 include: {
@@ -167,7 +180,11 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
                     },
                 });
 
-                // Process each item effectively
+                // Award commissions
+                await MarketingService.awardCommission(order.id, tx);
+                await ResellerService.handleOrderCommission(order.id, tx);
+
+                // Process items (domains/services)
                 for (const item of order.items) {
                     const productType = item.product?.productType;
 
@@ -192,10 +209,8 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
                                     autoRenew: true
                                 }
                             });
-                            console.log(`[ATOMIC ACTIVATION] Domain created: ${item.domainName}`);
                         }
                     } else if (productType !== 'DOMAIN') {
-                        // Activate or Create Service
                         const service = await tx.service.findFirst({
                             where: { orderId: order.id, productId: item.productId }
                         });
@@ -215,106 +230,127 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
                         }
                     }
                 }
+                activatedOrder = order;
                 console.log(`[ATOMIC ACTIVATION] Order #${order.id} fully processed and services activated.`);
             }
         }
 
-        // 4. ATOMIC RENEWALS: Process Invoice Items that are domain or service renewals
-        if (newStatus === InvoiceStatus.PAID) {
-            const renewalItems = await tx.invoiceItem.findMany({
-                where: {
-                    invoiceId: updatedInvoice.id,
-                    OR: [
-                        { domainId: { not: null } },
-                        { serviceId: { not: null } }
-                    ]
-                }
+        // 3b. ATOMIC ACTIVATION (Non-Order / Bulk Provision Items)
+        // If there is NO Order ID, we still might have services/domains linked directly to invoice items (e.g. from Bulk Provisioning)
+        else if (!updatedInvoice.orderId && newStatus === InvoiceStatus.PAID) {
+            console.log(`[ATOMIC ACTIVATION] Invoice #${updatedInvoice.invoiceNumber} paid (No Order). Checking for direct service/domain links...`);
+
+            const items = await tx.invoiceItem.findMany({
+                where: { invoiceId: updatedInvoice.id }
             });
 
-            for (const item of renewalItems) {
-                if (item.metadata) {
-                    try {
-                        const meta = JSON.parse(item.metadata);
-                        const period = meta.period || 1;
+            for (const item of items) {
+                // Activate Service
+                if (item.serviceId) {
+                    const service = await tx.service.findUnique({ where: { id: item.serviceId } });
+                    if (service && service.status === 'PENDING') {
+                        const now = new Date();
+                        const nextDueDate = new Date(now);
+                        const cycle = service.billingCycle?.toLowerCase();
+                        if (cycle === 'monthly') nextDueDate.setMonth(now.getMonth() + 1);
+                        else if (cycle === 'annually') nextDueDate.setFullYear(now.getFullYear() + 1);
+                        else nextDueDate.setMonth(now.getMonth() + 1);
 
-                        if (meta.type === 'domain_renewal' && item.domainId) {
-                            const domain = await tx.domain.findUnique({ where: { id: item.domainId } });
-                            if (domain) {
-                                const now = new Date();
-                                const currentExpiry = new Date(domain.expiryDate);
-                                let newExpiry = new Date();
+                        await tx.service.update({
+                            where: { id: service.id },
+                            data: { status: 'ACTIVE', nextDueDate }
+                        });
+                        console.log(`[ATOMIC ACTIVATION] Service #${service.id} activated.`);
+                    }
+                }
 
-                                if (currentExpiry < now) {
-                                    newExpiry.setFullYear(now.getFullYear() + period);
-                                } else {
-                                    newExpiry = new Date(currentExpiry);
-                                    newExpiry.setFullYear(newExpiry.getFullYear() + period);
-                                }
-
-                                await tx.domain.update({
-                                    where: { id: domain.id },
-                                    data: { expiryDate: newExpiry, status: 'ACTIVE' }
-                                });
-                                console.log(`[ATOMIC RENEWAL] Domain ${domain.domainName} extended to ${newExpiry.toISOString()}`);
-                            }
-                        } else if (meta.type === 'service_renewal' && item.serviceId) {
-                            const service = await tx.service.findUnique({ where: { id: item.serviceId } });
-                            if (service) {
-                                const now = new Date();
-                                const currentDue = service.nextDueDate ? new Date(service.nextDueDate) : new Date();
-                                let newDue = new Date();
-
-                                const cycle = service.billingCycle?.toLowerCase();
-                                const isAnnual = cycle === 'annually';
-
-                                if (currentDue < now) {
-                                    newDue = new Date(now);
-                                } else {
-                                    newDue = new Date(currentDue);
-                                }
-
-                                if (isAnnual) {
-                                    newDue.setFullYear(newDue.getFullYear() + period);
-                                } else {
-                                    newDue.setMonth(newDue.getMonth() + period);
-                                }
-
-                                await tx.service.update({
-                                    where: { id: service.id },
-                                    data: { nextDueDate: newDue, status: 'ACTIVE' as any }
-                                });
-                                console.log(`[ATOMIC RENEWAL] Service #${service.id} extended to ${newDue.toISOString()}`);
-                            }
+                // Activate Domain
+                // Note: Bulk provision might not link domainId to InvoiceItem directly depending on controller logic,
+                // but good to support it. If controller links serviceId, and that service has a domain...
+                if (item.domainId) {
+                    const domain = await tx.domain.findUnique({ where: { id: item.domainId } });
+                    if (domain && domain.status === 'PENDING') {
+                        await tx.domain.update({
+                            where: { id: domain.id },
+                            data: { status: 'ACTIVE' }
+                        });
+                        console.log(`[ATOMIC ACTIVATION] Domain #${domain.id} activated.`);
+                    }
+                } else if (item.serviceId) {
+                    // Check if service has a domain that needs activation
+                    const service = await tx.service.findUnique({ where: { id: item.serviceId } });
+                    if (service && service.domain) {
+                        // Find domain by name + client
+                        const domain = await tx.domain.findFirst({
+                            where: { domainName: service.domain, clientId: service.clientId, status: 'PENDING' }
+                        });
+                        if (domain) {
+                            await tx.domain.update({
+                                where: { id: domain.id },
+                                data: { status: 'ACTIVE' }
+                            });
+                            console.log(`[ATOMIC ACTIVATION] Domain #${domain.id} (${domain.domainName}) activated via Service link.`);
                         }
-                    } catch (e) {
-                        console.error("[ATOMIC RENEWAL] Failed to process renewal", e);
                     }
                 }
             }
         }
 
-        // 4. Send Payment Email with PDF
+        // 4. ATOMIC RENEWALS
+        if (newStatus === InvoiceStatus.PAID) {
+            await processInvoiceRenewals(invoiceId, tx);
+        }
+
+        // Return everything needed for post-transaction actions (emails)
+        const fullInvoice = await tx.invoice.findUnique({
+            where: { id: invoiceId },
+            include: {
+                items: true,
+                client: { include: { user: true } }
+            }
+        });
+
+        return { updatedInvoice, transaction, fullInvoice };
+
+    }, { timeout: 25000 }); // Increase timeout to 25s
+
+    // 5. POST-TRANSACTION EMAILS (Non-blocking)
+    if (result.fullInvoice) {
+        // Send Payment Paid Email
         try {
-            const fullInvoice = await tx.invoice.findUnique({
-                where: { id: invoiceId },
-                include: {
-                    items: true,
-                    client: { include: { user: true } }
-                }
+            const pdfBuffer = await generateInvoicePDF(result.fullInvoice);
+            const { subject, body } = EmailTemplates.invoicePaid(result.updatedInvoice.invoiceNumber);
+
+            await sendEmail((result.fullInvoice as any).client.user.email, subject, body, [
+                { filename: `Paid_Invoice-${result.updatedInvoice.invoiceNumber}.pdf`, content: pdfBuffer }
+            ]);
+
+            // Notify Admins
+            const admins = await prisma.user.findMany({
+                where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN] }, status: 'ACTIVE' },
+                select: { email: true }
             });
 
-            const pdfBuffer = await generateInvoicePDF(fullInvoice);
-            const { subject, body } = EmailTemplates.invoicePaid(updatedInvoice.invoiceNumber);
+            const adminNotification = EmailTemplates.adminTransitionNotification(
+                'Invoice Paid (Gateway/Callback)',
+                `Invoice: #${result.updatedInvoice.invoiceNumber}\nClient: ${(result.fullInvoice as any).client.user.firstName} ${(result.fullInvoice as any).client.user.lastName}\nAmount: ${amount}\nMethod: ${gateway}\nTransaction ID: ${transactionId}`
+            );
 
-            await sendEmail(fullInvoice!.client.user.email, subject, body, [
-                { filename: `Paid_Invoice-${updatedInvoice.invoiceNumber}.pdf`, content: pdfBuffer }
-            ]);
+            for (const admin of admins) {
+                if (admin.email) {
+                    try {
+                        await sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                    } catch (sendErr) {
+                        console.error(`Failed to send invoice payout notification to admin ${admin.email}`);
+                    }
+                }
+            }
         } catch (e) {
             console.error("Payment confirmation email failed:", e);
         }
+    }
 
-        return { updatedInvoice, transaction };
-    });
+    return result;
 };
 
 /**
@@ -497,6 +533,16 @@ export const createRenewalInvoice = async (type: 'SERVICE' | 'DOMAIN', itemId: n
             });
             if (!domain) throw new AppError('Domain not found', 404);
 
+            // Check if already has an unpaid invoice for this domain
+            const existing = await tx.invoice.findFirst({
+                where: {
+                    clientId: domain.clientId,
+                    status: InvoiceStatus.UNPAID,
+                    items: { some: { domainId: domain.id } }
+                }
+            });
+            if (existing) return existing;
+
             // Find renewal price from DomainTLD
             const parts = domain.domainName.split('.');
             const tldVariations = [
@@ -583,10 +629,11 @@ export const createRenewalInvoice = async (type: 'SERVICE' | 'DOMAIN', itemId: n
 /**
  * Process Renewals (Domains & Services) for a Paid Invoice
  */
-export const processInvoiceRenewals = async (invoiceId: number) => {
-    console.log(`[PROCESS RENEWALS] Checking invoice #${invoiceId} for renewals...`);
+export const processInvoiceRenewals = async (invoiceId: number, tx?: Prisma.TransactionClient) => {
+    console.log(`[PROCESS RENEWALS] Checking invoice #${invoiceId} for renewals/activations...`);
+    const dbClient = tx || prisma;
 
-    const itemsWithRenewals = await prisma.invoiceItem.findMany({
+    const itemsWithRenewals = await dbClient.invoiceItem.findMany({
         where: {
             invoiceId: invoiceId,
             OR: [
@@ -603,57 +650,288 @@ export const processInvoiceRenewals = async (invoiceId: number) => {
             const meta = JSON.parse(item.metadata);
             const period = meta.period || 1;
 
-            if (meta.type === 'domain_renewal' && item.domainId) {
-                const domain = await prisma.domain.findUnique({ where: { id: item.domainId } });
+            if ((meta.type === 'domain_renewal' || meta.type === 'new_domain') && item.domainId) {
+                const domain = await dbClient.domain.findUnique({ where: { id: item.domainId } });
                 if (domain) {
                     const now = new Date();
                     const currentExpiry = new Date(domain.expiryDate);
                     let newExpiry = new Date();
 
-                    if (currentExpiry < now) {
+                    if (meta.type === 'new_domain') {
+                        newExpiry = new Date();
+                        newExpiry.setFullYear(now.getFullYear() + period);
+                    } else if (currentExpiry < now) {
                         newExpiry.setFullYear(now.getFullYear() + period);
                     } else {
                         newExpiry = new Date(currentExpiry);
                         newExpiry.setFullYear(newExpiry.getFullYear() + period);
                     }
 
-                    await prisma.domain.update({
+                    await dbClient.domain.update({
                         where: { id: domain.id },
                         data: { expiryDate: newExpiry, status: 'ACTIVE' }
                     });
-                    console.log(`[RENEWAL] Domain ${domain.domainName} extended to ${newExpiry.toISOString()}`);
+                    console.log(`[ACTIVATION/RENEWAL] Domain ${domain.domainName} activated/extended to ${newExpiry.toISOString()}`);
                 }
-            } else if (meta.type === 'service_renewal' && item.serviceId) {
-                const service = await prisma.service.findUnique({ where: { id: item.serviceId } });
+            } else if ((meta.type === 'service_renewal' || meta.type === 'new_service') && item.serviceId) {
+                const service = await dbClient.service.findUnique({ where: { id: item.serviceId } });
                 if (service) {
                     const now = new Date();
                     const currentDue = service.nextDueDate ? new Date(service.nextDueDate) : new Date();
                     let newDue = new Date();
-
                     const cycle = service.billingCycle?.toLowerCase();
-                    const isAnnual = cycle === 'annually';
 
-                    if (currentDue < now) {
-                        newDue = new Date(now);
+                    if (meta.type === 'new_service') {
+                        newDue = new Date();
                     } else {
-                        newDue = new Date(currentDue);
+                        newDue = (currentDue < now) ? new Date(now) : new Date(currentDue);
                     }
 
-                    if (isAnnual) {
-                        newDue.setFullYear(newDue.getFullYear() + period);
-                    } else {
-                        newDue.setMonth(newDue.getMonth() + period);
-                    }
+                    if (cycle === 'monthly') newDue.setMonth(newDue.getMonth() + 1 * period);
+                    else if (cycle === 'quarterly') newDue.setMonth(newDue.getMonth() + 3 * period);
+                    else if (cycle === 'semi-annually') newDue.setMonth(newDue.getMonth() + 6 * period);
+                    else if (cycle === 'annually') newDue.setFullYear(newDue.getFullYear() + 1 * period);
+                    else if (cycle === 'biennial') newDue.setFullYear(newDue.getFullYear() + 2 * period);
+                    else if (cycle === 'triennial') newDue.setFullYear(newDue.getFullYear() + 3 * period);
+                    else newDue.setMonth(newDue.getMonth() + 1 * period);
 
-                    await prisma.service.update({
+                    await dbClient.service.update({
                         where: { id: service.id },
                         data: { nextDueDate: newDue, status: 'ACTIVE' as any }
                     });
-                    console.log(`[RENEWAL] Service #${service.id} extended to ${newDue.toISOString()}`);
+                    console.log(`[ACTIVATION/RENEWAL] Service #${service.id} activated/extended to ${newDue.toISOString()}`);
                 }
             }
         } catch (e) {
             console.error("[RENEWAL ERROR] Failed to process renewal for item", item.id, e);
         }
     }
+};
+
+/**
+ * Create a consolidated renewal invoice for multiple services and domains
+ * UPDATED: Now supports auto-merging with existing UNPAID invoices
+ */
+export const createConsolidatedRenewalInvoice = async (clientId: number, items: { type: 'SERVICE' | 'DOMAIN', itemId: number, period?: number }[]) => {
+    return await prisma.$transaction(async (tx) => {
+        const client = await tx.client.findUnique({
+            where: { id: clientId },
+            include: { group: true, user: true }
+        });
+
+        if (!client) throw new AppError('Client not found', 404);
+
+        // 1. Check for an existing UNPAID renewal-type invoice to merge with
+        // 1. Find the oldest UNPAID renewal-type invoice to serve as our "Renewal Hub"
+        const existingInvoice = await tx.invoice.findFirst({
+            where: {
+                clientId,
+                status: InvoiceStatus.UNPAID,
+                isDeleted: false,
+                orderId: null
+            },
+            include: { items: true, client: { include: { user: true } } },
+            orderBy: { id: 'asc' }
+        });
+
+        const lineItems: any[] = [];
+        let newSubtotal = new Prisma.Decimal(0);
+        let latestExpiryDate: Date | null = null;
+
+        for (const item of items) {
+            const period = item.period || 1;
+            let description: string = "";
+            let price = new Prisma.Decimal(0);
+            let serviceId: number | undefined;
+            let domainId: number | undefined;
+            let metadata: string | undefined;
+
+            if (item.type === 'SERVICE') {
+                const service = await tx.service.findUnique({
+                    where: { id: item.itemId },
+                    include: { product: true }
+                });
+
+                if (!service || service.clientId !== clientId) continue;
+
+                // Check if this item is ALREADY on our chosen hub
+                if (existingInvoice && existingInvoice.items.some(i => i.serviceId === service.id)) continue;
+
+                // Check if it's on ANOTHER unpaid invoice that we might want to consolidate
+                const existingOther = await tx.invoice.findFirst({
+                    where: {
+                        clientId,
+                        status: InvoiceStatus.UNPAID,
+                        isDeleted: false,
+                        items: { some: { serviceId: service.id } }
+                    }
+                });
+
+                if (existingOther && existingOther.id !== existingInvoice?.id) {
+                    if (existingOther.orderId === null) {
+                        // Mark the "other" fragment for consolidation (merging it into hub)
+                        await tx.invoice.update({
+                            where: { id: existingOther.id },
+                            data: { isDeleted: true, adminNotes: `Consolidated into Hub Invoice #${existingInvoice?.invoiceNumber || 'new'}` }
+                        });
+                        // Allow to fall through to add the item here
+                    } else {
+                        // Linked to a special Order, don't duplicate or devour
+                        continue;
+                    }
+                }
+
+                const unitPrice = service.amount;
+                price = unitPrice.mul(period);
+                const cycleSuffix = service.billingCycle?.toLowerCase() === 'annually' ? 'Year' : 'Month';
+                description = `Renewal - ${service.product.name} (${period} ${cycleSuffix}${period > 1 ? 's' : ''}) (${service.domain || 'no domain'})`;
+                serviceId = service.id;
+                metadata = JSON.stringify({ type: 'service_renewal', period });
+
+                if (service.nextDueDate && (!latestExpiryDate || service.nextDueDate > latestExpiryDate)) {
+                    latestExpiryDate = service.nextDueDate;
+                }
+            } else {
+                const domain = await tx.domain.findUnique({
+                    where: { id: item.itemId }
+                });
+
+                if (!domain || domain.clientId !== clientId) continue;
+
+                // Check if this item is ALREADY on our chosen hub
+                if (existingInvoice && existingInvoice.items.some(i => i.domainId === domain.id)) continue;
+
+                // Check if it's on ANOTHER unpaid invoice
+                const existingOther = await tx.invoice.findFirst({
+                    where: {
+                        clientId,
+                        status: InvoiceStatus.UNPAID,
+                        isDeleted: false,
+                        items: { some: { domainId: domain.id } }
+                    }
+                });
+
+                if (existingOther && existingOther.id !== existingInvoice?.id) {
+                    if (existingOther.orderId === null) {
+                        await tx.invoice.update({
+                            where: { id: existingOther.id },
+                            data: { isDeleted: true, adminNotes: `Consolidated into Hub Invoice #${existingInvoice?.invoiceNumber || 'new'}` }
+                        });
+                    } else {
+                        continue;
+                    }
+                }
+
+                const parts = domain.domainName.split('.');
+                const tldVariations = [
+                    `.${parts.slice(-2).join('.')}`,
+                    parts.slice(-2).join('.'),
+                    `.${parts[parts.length - 1]}`,
+                    parts[parts.length - 1]
+                ];
+
+                const possibleTLDs = await tx.domainTLD.findMany({
+                    where: { tld: { in: tldVariations } }
+                });
+
+                const matchedTLD = possibleTLDs.sort((a, b) => b.tld.length - a.tld.length)[0];
+                const unitPrice = matchedTLD?.renewalPrice || new Prisma.Decimal(15.00);
+                price = unitPrice.mul(period);
+                description = `Renewal - Domain: ${domain.domainName} (${period} Year${period > 1 ? 's' : ''})`;
+                domainId = domain.id;
+                metadata = JSON.stringify({ type: 'domain_renewal', period });
+
+                if (domain.expiryDate && (!latestExpiryDate || domain.expiryDate > latestExpiryDate)) {
+                    latestExpiryDate = domain.expiryDate;
+                }
+            }
+
+            if (price.greaterThan(0)) {
+                lineItems.push({
+                    description,
+                    quantity: 1,
+                    unitPrice: price,
+                    totalAmount: price,
+                    serviceId: serviceId || null,
+                    domainId: domainId || null,
+                    metadata: metadata || null
+                });
+                newSubtotal = newSubtotal.add(price);
+            }
+        }
+
+        if (lineItems.length === 0) return existingInvoice || null;
+
+        let finalInvoice;
+
+        if (existingInvoice) {
+            // 2. MERGE: Append to existing invoice
+            await tx.invoiceItem.createMany({
+                data: lineItems.map(li => ({ ...li, invoiceId: existingInvoice.id }))
+            });
+
+            // Recalculate totals mathematically (Safer and Faster)
+            const subtotal = existingInvoice.subtotal.add(newSubtotal);
+            const currentTaxRate = await settingsService.getTaxRate();
+            const taxAmount = client.group?.taxExempt ? new Prisma.Decimal(0) : subtotal.mul(currentTaxRate);
+            const totalAmount = subtotal.add(taxAmount);
+
+            // EXTENSION LOGIC: Update Due Date if new items expire later (giving client more time for the bundle)
+            const finalDueDate = latestExpiryDate && latestExpiryDate > existingInvoice.dueDate ? latestExpiryDate : existingInvoice.dueDate;
+
+            finalInvoice = await tx.invoice.update({
+                where: { id: existingInvoice.id },
+                data: { subtotal, taxAmount, totalAmount, dueDate: finalDueDate },
+                include: { items: true, client: { include: { user: true } } }
+            });
+
+            console.log(`[MERGE] Appended ${lineItems.length} items to existing Invoice #${finalInvoice.invoiceNumber}. New Total: ${totalAmount}`);
+        } else {
+            // 3. CREATE NEW: Standard flow
+            const currentTaxRate = await settingsService.getTaxRate();
+            const taxAmount = client.group?.taxExempt ? new Prisma.Decimal(0) : newSubtotal.mul(currentTaxRate);
+            const totalAmount = newSubtotal.add(taxAmount);
+            const finalDueDate = latestExpiryDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+            finalInvoice = await tx.invoice.create({
+                data: {
+                    invoiceNumber: generateInvoiceNumber(),
+                    clientId: clientId,
+                    dueDate: finalDueDate,
+                    subtotal: newSubtotal,
+                    taxAmount,
+                    totalAmount,
+                    status: InvoiceStatus.UNPAID,
+                    items: { create: lineItems }
+                },
+                include: { items: true, client: { include: { user: true } } }
+            });
+        }
+
+        // Send Email (New or Updated)
+        try {
+            const appName = await settingsService.getSetting('appName', 'WHMCS CRM');
+            const taxName = await settingsService.getSetting('taxName', 'Tax');
+            const currencySymbol = await settingsService.getCurrencySymbol();
+            const pdfBuffer = await generateInvoicePDF(finalInvoice, appName, taxName, currencySymbol);
+            const { subject, body } = EmailTemplates.invoiceCreated(
+                finalInvoice.invoiceNumber,
+                finalInvoice.dueDate.toLocaleDateString(),
+                finalInvoice.totalAmount.toString()
+            );
+
+            // Tweak email content to reflect ALL renewals in the bundle
+            const allItems = finalInvoice.items.map((i: any) => `• ${i.description}`).join('\n');
+            const finalSubject = existingInvoice ? `Consolidated Renewal Invoice Updated: #${finalInvoice.invoiceNumber}` : subject;
+            const finalBody = `Dear ${finalInvoice.client.user.firstName},\n\nWe have updated your account with a consolidated renewal invoice covering your upcoming services.\n\nIncluded renewals:\n${allItems}\n\nInvoice: #${finalInvoice.invoiceNumber}\nTotal: ${finalInvoice.totalAmount}\nDue Date: ${finalInvoice.dueDate.toLocaleDateString()}\n\nPlease login to your client area to manage your renewals.\n\nRegards,\nThe Billing Team`;
+
+            await sendEmail(finalInvoice.client.user.email, finalSubject, finalBody, [
+                { filename: `Invoice-${finalInvoice.invoiceNumber}.pdf`, content: pdfBuffer }
+            ]);
+        } catch (e) {
+            console.error("Renewal invoice email failed", e);
+        }
+
+        return finalInvoice;
+    });
 };

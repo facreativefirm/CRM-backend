@@ -42,7 +42,7 @@ export const unbanIP = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     await prisma.bannedIP.delete({
-        where: { id: parseInt(id) }
+        where: { id: parseInt(id as string) }
     });
 
     res.status(200).json({
@@ -84,7 +84,7 @@ export const deleteSecurityQuestion = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     await prisma.securityQuestion.delete({
-        where: { id: parseInt(id) }
+        where: { id: parseInt(id as string) }
     });
 
     res.status(200).json({
@@ -111,7 +111,7 @@ export const updateClientSecurityQuestion = async (req: AuthRequest, res: Respon
     let clientQuestion = await prisma.clientSecurityQuestion.findFirst({
         where: {
             clientId: client.id,
-            questionId: parseInt(questionId)
+            questionId: parseInt(questionId as string)
         }
     });
 
@@ -126,7 +126,7 @@ export const updateClientSecurityQuestion = async (req: AuthRequest, res: Respon
         clientQuestion = await prisma.clientSecurityQuestion.create({
             data: {
                 clientId: client.id,
-                questionId: parseInt(questionId),
+                questionId: parseInt(questionId as string),
                 answerHash
             }
         });

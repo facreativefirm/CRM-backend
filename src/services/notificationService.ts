@@ -1,17 +1,17 @@
-
 import prisma from '../config/database';
 import { UserType } from '@prisma/client';
+import { notifyUser, notifyAdmins } from './socketService';
 
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
 
 export const createNotification = async (
-    userId: number | null, // null for broadcast to all admins? Or specific logic
+    userId: number | null,
     type: NotificationType,
     title: string,
     message: string,
     link?: string
 ) => {
-    return await prisma.notification.create({
+    const notification = await prisma.notification.create({
         data: {
             userId,
             type,
@@ -21,6 +21,13 @@ export const createNotification = async (
             isRead: false
         }
     });
+
+    // Real-time: Notify user
+    if (userId) {
+        notifyUser(userId, 'new_notification', notification);
+    }
+
+    return notification;
 };
 
 export const broadcastToAdmins = async (
@@ -49,9 +56,19 @@ export const broadcastToAdmins = async (
     }));
 
     if (notifications.length > 0) {
-        return await prisma.notification.createMany({
+        const result = await prisma.notification.createMany({
             data: notifications
         });
+
+        // Real-time: Notify all admins
+        notifyAdmins('new_notification', {
+            type,
+            title,
+            message,
+            link
+        });
+
+        return result;
     }
 };
 

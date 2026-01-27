@@ -9,15 +9,27 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "moduleResolution": "node",
-        "declaration": true,
-        "sourceMap": true,
-        "jsx": "react-jsx"
+        "resolveJsonModule": true,
+        "declaration": false,
+        "sourceMap": false,
+        "removeComments": true,
+        "noEmitOnError": true,
+        "jsx": "react-jsx",
+        "lib": [
+            "ES2020"
+        ],
+        "types": [
+            "node"
+        ]
     },
     "include": [
         "src/**/*"
     ],
     "exclude": [
         "node_modules",
-        "**/*.spec.ts"
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "dist",
+        "tests"
     ]
 }

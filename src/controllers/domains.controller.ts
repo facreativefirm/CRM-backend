@@ -14,19 +14,12 @@ export const getDomains = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user) throw new AppError('Unauthorized', 401);
 
-        const isClient = req.user.userType === UserType.CLIENT;
-        const isReseller = req.user.userType === UserType.RESELLER;
         const isAdmin = ([UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF] as UserType[]).includes(req.user.userType);
 
         // Build where clause based on user role
         let where: any = {};
-        if (isClient) {
-            where = { client: { userId: req.user.id } };
-        } else if (isReseller) {
-            where = { client: { resellerId: req.user.id } };
-        } else if (!isAdmin) {
-            // If not admin and not client/reseller, they shouldn't see anything
-            return res.status(200).json({ status: 'success', data: { domains: [] } });
+        if (!isAdmin) {
+            where = { client: { userId: req.user.id } }; // Personal data for everyone else
         }
 
         const domains = await prisma.domain.findMany({
@@ -66,6 +59,9 @@ export const getDomains = async (req: AuthRequest, res: Response) => {
 /**
  * Register Domain (Simplified)
  */
+/**
+ * Register Domain (Invoice First)
+ */
 export const registerDomain = async (req: AuthRequest, res: Response) => {
     try {
         const {
@@ -77,28 +73,83 @@ export const registerDomain = async (req: AuthRequest, res: Response) => {
             dnsManagement,
             emailForwarding,
             idProtection,
-            status
         } = req.body;
 
         const period = Number(regPeriod) || 1;
+
+        // 1. Create Domain as PENDING
         const expiryDate = new Date();
         expiryDate.setFullYear(expiryDate.getFullYear() + period);
 
         const domain = await prisma.domain.create({
             data: {
-                clientId,
+                clientId: parseInt(clientId),
                 domainName,
                 expiryDate,
-                registrar: registrar || 'Default Registrar',
-                status: (status as DomainStatus) || DomainStatus.ACTIVE,
+                registrar: registrar || 'manual',
+                status: 'PENDING',
                 autoRenew: autoRenew ?? true,
                 dnsManagement: dnsManagement ?? false,
                 emailForwarding: emailForwarding ?? false,
                 idProtection: idProtection ?? false,
+                registrationDate: new Date(),
             }
         });
 
-        res.status(201).json({ status: 'success', data: { domain } });
+        // 2. Determine Price from TLD
+        const parts = domainName.split('.');
+        const tldExtension = '.' + parts[parts.length - 1];
+
+        // Try exact match first, then without dot? Usually stored with dot or handled by DB
+        // Let's look for both variations to be safe or just the extension
+        const tldRecord = await prisma.domainTLD.findFirst({
+            where: {
+                tld: { in: [tldExtension, parts[parts.length - 1]] }
+            }
+        });
+
+        const unitPrice = tldRecord ? Number(tldRecord.registrationPrice) : 0;
+        const totalAmount = unitPrice * period;
+
+        // 3. Create Invoice
+        const invoice = await prisma.invoice.create({
+            data: {
+                clientId: parseInt(clientId),
+                invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                status: 'UNPAID',
+                dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                subtotal: totalAmount,
+                totalAmount: totalAmount,
+                items: {
+                    create: [{
+                        description: `Domain Registration - ${domainName} (${period} Year${period > 1 ? 's' : ''})`,
+                        quantity: 1,
+                        unitPrice: unitPrice,
+                        totalAmount: totalAmount,
+                        domainId: domain.id,
+                        metadata: JSON.stringify({ type: 'new_domain', period })
+                    }]
+                }
+            }
+        });
+
+        // 4. Send Email
+        try {
+            const { subject, body } = EmailTemplates.invoiceCreated(invoice.invoiceNumber);
+            const client = await prisma.client.findUnique({ where: { id: parseInt(clientId) }, include: { user: true } });
+            if (client?.user?.email) {
+                await sendEmail(client.user.email, subject, body);
+            }
+        } catch (e) {
+            console.error("Failed to send invoice email", e);
+        }
+
+        res.status(201).json({
+            status: 'success',
+            message: 'Domain registered (Pending). Invoice generated.',
+            data: { domain, invoice }
+        });
+
     } catch (error: any) {
         console.error('[RegisterDomain Error]:', error);
         res.status(error.statusCode || 500).json({
@@ -116,14 +167,14 @@ export const renewDomain = async (req: Request, res: Response) => {
         const { id } = req.params;
         const { years } = req.body;
 
-        const domain = await prisma.domain.findUnique({ where: { id: parseInt(id) } });
+        const domain = await prisma.domain.findUnique({ where: { id: parseInt(id as string) } });
         if (!domain) throw new AppError('Domain not found', 404);
 
         const newExpiry = new Date(domain.expiryDate);
         newExpiry.setFullYear(newExpiry.getFullYear() + (years || 1));
 
         const updated = await prisma.domain.update({
-            where: { id: parseInt(id) },
+            where: { id: parseInt(id as string) },
             data: { expiryDate: newExpiry }
         });
 
@@ -148,7 +199,7 @@ export const requestDomainRenewal = async (req: AuthRequest, res: Response) => {
 
         const domain = await prisma.domain.findFirst({
             where: {
-                id: parseInt(id),
+                id: parseInt(id as string),
                 client: { userId }
             }
         });
@@ -183,11 +234,11 @@ export const updateDomain = async (req: Request, res: Response) => {
         // Remove fields that should not be updated directly via this endpoint if necessary
         delete updateData.regPeriod;
 
-        const domain = await prisma.domain.findUnique({ where: { id: parseInt(id) } });
+        const domain = await prisma.domain.findUnique({ where: { id: parseInt(id as string) } });
         if (!domain) throw new AppError('Domain not found', 404);
 
         const updated = await prisma.domain.update({
-            where: { id: parseInt(id) },
+            where: { id: parseInt(id as string) },
             data: updateData
         });
 
@@ -245,7 +296,7 @@ export const getDomainDetails = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const domain = await prisma.domain.findUnique({
-            where: { id: parseInt(id) },
+            where: { id: parseInt(id as string) },
             include: { client: { include: { user: true } } }
         });
 
@@ -267,7 +318,7 @@ export const getDomainDetails = async (req: AuthRequest, res: Response) => {
 export const notifyDomainExpiration = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const domainId = parseInt(id);
+        const domainId = parseInt(id as string);
 
         const domain = await prisma.domain.findUnique({
             where: { id: domainId },

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as supportController from '../../controllers/support.controller';
 import * as supportExtras from '../../controllers/supportExtras.controller';
 import { protect, restrictTo } from '../../middleware/auth.middleware';
+import { validateGuestScope } from '../../middleware/guestScope.middleware';
 import { validate } from '../../middleware/validation.middleware';
 import { ticketSchema, replySchema, departmentSchema, predefinedReplySchema } from '../../utils/validators';
 import { UserType } from '@prisma/client';
@@ -9,6 +10,7 @@ import { UserType } from '@prisma/client';
 const router = Router();
 
 router.use(protect);
+router.use(validateGuestScope); // Validate guest session scope
 
 // Support Tickets
 router.get('/tickets', supportController.getTickets);

@@ -19,6 +19,12 @@
 
 # production
 /dist
+*.zip
+*.tar.gz
+whmcs-backend-production.*
+
+# generated
+/generated
 
 # misc
 .DS_Store

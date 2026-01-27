@@ -4,37 +4,69 @@ import { AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { UserType, TicketPriority, Prisma } from '@prisma/client';
 import * as notificationService from '../services/notificationService';
+import { notifyTicketUpdate, notifyAdmins } from '../services/socketService';
 
 /**
  * List Support Tickets with isolation
  */
 export const getTickets = async (req: AuthRequest, res: Response) => {
-    if (!req.user) throw new AppError('Unauthorized', 401);
-    const { status, priority, departmentId } = req.query;
-    const isClient = req.user.userType === UserType.CLIENT;
-    const isReseller = req.user.userType === UserType.RESELLER;
+    try {
+        if (!req.user) throw new AppError('Unauthorized', 401);
+        const { status, priority, departmentId, limit } = req.query;
+        const isClient = req.user.userType === UserType.CLIENT;
+        const isReseller = req.user.userType === UserType.RESELLER;
 
-    const tickets = await prisma.supportTicket.findMany({
-        where: {
-            ...(status && { status: status as string }),
-            ...(priority && { priority: priority as TicketPriority }),
-            ...(departmentId && { departmentId: parseInt(departmentId as string) }),
-            ...(isClient ? { clientId: (await prisma.client.findUnique({ where: { userId: req.user.id } }))?.id } : {}),
-            ...(isReseller ? { client: { resellerId: req.user.id } } : {}),
-        },
-        include: {
-            client: { include: { user: true } },
-            department: true,
-            assignedTo: true,
-        },
-        orderBy: { lastReplyDate: 'desc' },
-    });
+        // Get client ID for client users (including guests)
+        let clientId: number | undefined;
+        if (isClient) {
+            const client = await prisma.client.findUnique({
+                where: { userId: req.user.id }
+            });
 
-    res.status(200).json({
-        status: 'success',
-        results: tickets.length,
-        data: { tickets },
-    });
+            // If client record not found for a CLIENT user, return empty list safely
+            if (!client) {
+                return res.status(200).json({
+                    status: 'success',
+                    results: 0,
+                    data: { tickets: [] },
+                });
+            }
+            clientId = client.id;
+        }
+
+        // Parse limit safely
+        let take: number | undefined;
+        if (limit) {
+            take = parseInt(limit as string, 10);
+            if (isNaN(take)) take = undefined;
+        }
+
+        const tickets = await prisma.supportTicket.findMany({
+            where: {
+                ...(status && { status: status as string }),
+                ...(priority && { priority: priority as TicketPriority }),
+                ...(departmentId && { departmentId: parseInt(departmentId as string) }),
+                ...(isClient && clientId ? { clientId } : {}),
+                ...(isReseller ? { client: { resellerId: req.user.id } } : {}),
+            },
+            include: {
+                client: { include: { user: true } },
+                department: true,
+                assignedTo: true,
+            },
+            orderBy: { lastReplyDate: 'desc' },
+            ...(take ? { take } : {}),
+        });
+
+        res.status(200).json({
+            status: 'success',
+            results: tickets.length,
+            data: { tickets },
+        });
+    } catch (err) {
+        console.error('[GetTickets] Error:', err);
+        throw new AppError('Failed to retrieve tickets', 500);
+    }
 };
 
 /**
@@ -83,9 +115,13 @@ export const openTicket = async (req: AuthRequest, res: Response) => {
             }
         },
         include: {
-            replies: true
+            replies: { include: { user: true } },
+            client: { include: { user: true } }
         }
     });
+
+    // SOCKET: Notify Admins of New Ticket
+    notifyAdmins('new_ticket', ticket);
 
     // 1. Notify assigned support if present
     if (department?.assignedSupportId) {
@@ -111,6 +147,28 @@ export const openTicket = async (req: AuthRequest, res: Response) => {
                 `A new support ticket has been opened: ${subject}`,
                 `/admin/support/${ticket.id}`
             );
+
+            // Send Email to Admins
+            const admins = await prisma.user.findMany({
+                where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN] }, status: 'ACTIVE' },
+                select: { email: true }
+            });
+
+            const { sendEmail, EmailTemplates } = await import('../services/email.service');
+            const adminNotification = EmailTemplates.adminTransitionNotification(
+                'New Support Ticket',
+                `Ticket: #${ticketNumber}\nSubject: ${subject}\nPriority: ${priority}`
+            );
+
+            for (const admin of admins) {
+                if (admin.email) {
+                    try {
+                        await sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                    } catch (sendErr) {
+                        console.error(`Failed to send ticket notification to admin ${admin.email}:`, sendErr);
+                    }
+                }
+            }
         } catch (e) {
             console.error("Failed to broadcast new ticket notification", e);
         }
@@ -146,7 +204,7 @@ export const openTicket = async (req: AuthRequest, res: Response) => {
  */
 export const getTicket = async (req: AuthRequest, res: Response) => {
     const ticket = await prisma.supportTicket.findUnique({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         include: {
             client: { include: { user: true } },
             department: true,
@@ -186,7 +244,7 @@ export const updateTicketPresence = async (req: AuthRequest, res: Response) => {
         return res.status(200).json({ status: 'success' }); // Silent fail
     }
 
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(req.params.id as string);
     const sessionToken = req.headers['x-session-token'] as string;
 
     await prisma.session.update({
@@ -206,10 +264,18 @@ export const updateTicketPresence = async (req: AuthRequest, res: Response) => {
 export const replyTicket = async (req: AuthRequest, res: Response) => {
     if (!req.user) throw new AppError('Unauthorized', 401);
     const { message, isInternalNote } = req.body;
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(req.params.id as string);
 
     const ticket = await prisma.supportTicket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new AppError('Ticket not found', 404);
+
+    // Prevent clients from replying to closed or on-hold tickets
+    if ((ticket.status === 'CLOSED' || ticket.status === 'ON_HOLD') && req.user.userType === UserType.CLIENT) {
+        const message = ticket.status === 'CLOSED'
+            ? 'This ticket is closed and cannot be replied to.'
+            : 'This ticket is currently on hold. Please wait for an update or contact us through a new ticket.';
+        throw new AppError(message, 403);
+    }
 
     const reply = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // 1. Create Reply
@@ -220,7 +286,8 @@ export const replyTicket = async (req: AuthRequest, res: Response) => {
                 message,
                 attachments: req.body.attachments ? JSON.stringify(req.body.attachments) : null,
                 isInternalNote: isInternalNote || false,
-            }
+            },
+            include: { user: true }
         });
 
         // 2. Update Ticket Status & Last Reply Date
@@ -236,32 +303,25 @@ export const replyTicket = async (req: AuthRequest, res: Response) => {
         return newReply;
     });
 
-    // 3. Send Notification (Only if user is NOT currently viewing the ticket)
-    try {
-        const isClientReply = req.user.userType === UserType.CLIENT || req.user.userType === UserType.RESELLER;
+    // SOCKET Broadcasts
+    notifyTicketUpdate(ticketId, 'new_message', { reply });
+    notifyTicketUpdate(ticketId, 'ticket_updated', {
+        status: (req.user!.userType === UserType.CLIENT ? 'OPEN' : 'ANSWERED'),
+        lastReplyDate: new Date()
+    });
 
-        if (isClientReply) {
-            // Notify Admins/Staff who are NOT currently viewing this ticket
-            const admins = await prisma.user.findMany({
-                where: {
-                    userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF] }
-                },
-                select: { id: true }
-            });
+    // 3. Background Notifications (Non-blocking)
+    (async () => {
+        try {
+            const isClientReply = req.user!.userType === UserType.CLIENT || req.user!.userType === UserType.RESELLER;
 
-            for (const admin of admins) {
-                // Check if admin has an active session on this ticket
-                const activeSession = await prisma.session.findFirst({
-                    where: {
-                        userId: admin.id,
-                        activeTicketId: ticketId,
-                        lastPresenceAt: {
-                            gte: new Date(Date.now() - 30 * 1000) // Active in last 30s
-                        }
-                    }
+            if (isClientReply) {
+                const admins = await prisma.user.findMany({
+                    where: { userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF] } },
+                    select: { id: true, email: true }
                 });
 
-                if (!activeSession) {
+                for (const admin of admins) {
                     await notificationService.createNotification(
                         admin.id,
                         'INFO',
@@ -269,28 +329,25 @@ export const replyTicket = async (req: AuthRequest, res: Response) => {
                         `Client replied to ticket: ${ticket.subject}`,
                         `/admin/support/${ticketId}`
                     );
+
+                    if (admin.email) {
+                        try {
+                            const { sendEmail, EmailTemplates } = await import('../services/email.service');
+                            const adminNotification = EmailTemplates.adminTransitionNotification(
+                                'Support Ticket Reply',
+                                `Ticket: #${ticket.ticketNumber}\nSubject: ${ticket.subject}\nMessage Snippet: ${message.substring(0, 100)}...`
+                            );
+                            await sendEmail(admin.email, adminNotification.subject, adminNotification.body);
+                        } catch (sendErr) { }
+                    }
                 }
-            }
-        } else {
-            // Admin replied -> Notify Client if they are NOT viewing
-            if (!isInternalNote) {
-                const client = await prisma.client.findUnique({
-                    where: { id: ticket.clientId },
-                    select: { userId: true }
-                });
-
-                if (client && client.userId) {
-                    const activeSession = await prisma.session.findFirst({
-                        where: {
-                            userId: client.userId,
-                            activeTicketId: ticketId,
-                            lastPresenceAt: {
-                                gte: new Date(Date.now() - 30 * 1000)
-                            }
-                        }
+            } else {
+                if (!isInternalNote) {
+                    const client = await prisma.client.findUnique({
+                        where: { id: ticket.clientId },
+                        select: { userId: true }
                     });
-
-                    if (!activeSession) {
+                    if (client?.userId) {
                         await notificationService.createNotification(
                             client.userId,
                             'INFO',
@@ -301,10 +358,10 @@ export const replyTicket = async (req: AuthRequest, res: Response) => {
                     }
                 }
             }
+        } catch (err) {
+            console.error("[Background Notification Error]:", err);
         }
-    } catch (err) {
-        console.error("Failed to send notification for ticket reply:", err);
-    }
+    })();
 
     res.status(201).json({
         status: 'success',
@@ -317,7 +374,7 @@ export const replyTicket = async (req: AuthRequest, res: Response) => {
  */
 export const updateTicket = async (req: AuthRequest, res: Response) => {
     if (!req.user) throw new AppError('Unauthorized', 401);
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(req.params.id as string);
 
     // Isolation check
     const ticket = await prisma.supportTicket.findUnique({ where: { id: ticketId } });
@@ -327,12 +384,14 @@ export const updateTicket = async (req: AuthRequest, res: Response) => {
         const client = await prisma.client.findUnique({ where: { userId: req.user.id } });
         if (ticket.clientId !== client?.id) throw new AppError('Access denied', 403);
     }
-    // Reseller check could be added here if needed
 
     const updated = await prisma.supportTicket.update({
         where: { id: ticketId },
         data: req.body,
     });
+
+    // SOCKET Broadcast
+    notifyTicketUpdate(ticketId, 'ticket_updated', updated);
 
     // Notify other party if ticket is solved (CLOSED)
     if (req.body.status === 'CLOSED' && ticket.status !== 'CLOSED') {

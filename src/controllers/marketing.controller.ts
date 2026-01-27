@@ -71,7 +71,7 @@ export const createPromotion = async (req: Request, res: Response) => {
 };
 
 export const deletePromotion = async (req: Request, res: Response) => {
-    await prisma.promotion.delete({ where: { id: parseInt(req.params.id) } });
+    await prisma.promotion.delete({ where: { id: parseInt(req.params.id as string) } });
     res.status(204).send();
 };
 /**

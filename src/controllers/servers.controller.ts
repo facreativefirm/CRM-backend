@@ -21,13 +21,13 @@ export const createServer = async (req: Request, res: Response) => {
 
 export const updateServer = async (req: Request, res: Response) => {
     const server = await prisma.server.update({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         data: req.body,
     });
     res.status(200).json({ status: 'success', data: { server } });
 };
 
 export const deleteServer = async (req: Request, res: Response) => {
-    await prisma.server.delete({ where: { id: parseInt(req.params.id) } });
+    await prisma.server.delete({ where: { id: parseInt(req.params.id as string) } });
     res.status(204).send();
 };

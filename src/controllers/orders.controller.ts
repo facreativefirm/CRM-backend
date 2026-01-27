@@ -11,17 +11,16 @@ import { UserType, OrderStatus } from '@prisma/client';
 export const getOrders = async (req: AuthRequest, res: Response) => {
     if (!req.user) throw new AppError('Unauthorized', 401);
     const { status, clientId } = req.query;
-    const isReseller = req.user.userType === UserType.RESELLER;
     const isAdmin = req.user.userType === UserType.ADMIN || req.user.userType === UserType.SUPER_ADMIN || req.user.userType === UserType.STAFF;
-
+    const userClient = await prisma.client.findUnique({ where: { userId: req.user.id } });
+    const userClientId = userClient?.id;
 
     const orders = await prisma.order.findMany({
         where: {
-            ...(status && { status: status as OrderStatus }),
+            ...(status && { status: status as any }),
             ...(clientId && { clientId: parseInt(clientId as string) }),
-            ...(isReseller ? { resellerId: req.user?.id } : {}),
-            // If client, they only see their own orders
-            ...(req.user?.userType === UserType.CLIENT ? { clientId: (await prisma.client.findUnique({ where: { userId: req.user.id } }))?.id } : {}),
+            // If not admin, only see personal orders
+            ...(!isAdmin ? { clientId: userClientId } : {}),
         },
         include: {
             client: {
@@ -49,7 +48,7 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
  */
 export const getOrder = async (req: AuthRequest, res: Response) => {
     const order = await prisma.order.findUnique({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         include: {
             client: { include: { user: true } },
             items: { include: { product: true } },
@@ -105,10 +104,65 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         }
     }
 
+    let resellerId = req.body.resellerId ? parseInt(req.body.resellerId.toString()) : (req.user.userType === UserType.RESELLER ? req.user.id : undefined);
+
+    // 1. If no resellerId yet, try looking up via resellerHost (storefront domain)
+    if (!resellerId && req.body.resellerHost) {
+        // Sanitize Host: Trim, Remove protocol, Remove trailing slash, Lowercase (Consistent with other lookup logic)
+        const host = req.body.resellerHost.trim().replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+        const hostWithoutWww = host.startsWith('www.') ? host.slice(4) : host;
+
+        const reseller = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { customDomain: host },
+                    { customDomain: `www.${host}` },
+                    { customDomain: hostWithoutWww },
+                    { customDomain: `www.${hostWithoutWww}` }
+                ],
+                userType: UserType.RESELLER
+            },
+            select: { id: true }
+        });
+
+        if (reseller) {
+            console.log(`[OrderController] Resolved ResellerID ${reseller.id} from host: ${req.body.resellerHost} (Sanitized: ${host})`);
+            resellerId = reseller.id;
+
+            // Associate client with this reseller if they are not already associated
+            const client = await prisma.client.findUnique({
+                where: { id: clientId },
+                select: { id: true, resellerId: true }
+            });
+
+            if (client && !client.resellerId) {
+                console.log(`[OrderController] Automatically associating Client ${clientId} with Reseller ${reseller.id}`);
+                await prisma.client.update({
+                    where: { id: clientId },
+                    data: { resellerId: reseller.id }
+                });
+            }
+        } else {
+            console.warn(`[OrderController] Could not resolve reseller from host: ${req.body.resellerHost} (Sanitized: ${host})`);
+        }
+    }
+
+    // 2. If STILL no resellerId, and user is a CLIENT, check their registered reseller
+    if (!resellerId && req.user.userType === UserType.CLIENT) {
+        const clientProfile = await prisma.client.findUnique({
+            where: { userId: req.user.id },
+            select: { resellerId: true }
+        });
+        if (clientProfile?.resellerId) {
+            console.log(`[OrderController] Resolved ResellerID ${clientProfile.resellerId} from Client Profile`);
+            resellerId = clientProfile.resellerId;
+        }
+    }
+
     const orderData = {
         ...req.body,
         clientId,
-        resellerId: req.user.userType === UserType.RESELLER ? req.user.id : undefined,
+        resellerId,
     };
 
     try {
@@ -131,7 +185,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
  */
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     const { status, reason } = req.body;
-    const orderId = parseInt(req.params.id);
+    const orderId = parseInt(req.params.id as string);
 
     if (!req.user) throw new AppError('Unauthorized', 401);
     const order = await orderService.updateOrderStatus(

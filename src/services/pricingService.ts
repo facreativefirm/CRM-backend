@@ -15,13 +15,26 @@ export const calculateProductPrice = (
     const normalizedCycle = cycle.toLowerCase();
 
     switch (normalizedCycle) {
-        case 'monthly': basePrice = product.monthlyPrice; break;
-        case 'quarterly': basePrice = product.quarterlyPrice; break;
-        case 'semi-annually': basePrice = product.semiAnnualPrice; break;
-        case 'annually': basePrice = product.annualPrice; break;
-        case 'biennially': basePrice = product.biennialPrice; break;
-        case 'triennially': basePrice = product.triennialPrice; break;
-        default: basePrice = product.monthlyPrice;
+        case 'monthly':
+            basePrice = product.monthlyPrice;
+            break;
+        case 'quarterly':
+            basePrice = Number(product.quarterlyPrice) > 0 ? product.quarterlyPrice : product.monthlyPrice.mul(3);
+            break;
+        case 'semi-annually':
+            basePrice = Number(product.semiAnnualPrice) > 0 ? product.semiAnnualPrice : product.monthlyPrice.mul(6);
+            break;
+        case 'annually':
+            basePrice = Number(product.annualPrice) > 0 ? product.annualPrice : product.monthlyPrice.mul(10.8); // 12 months * 0.9 (10% discount)
+            break;
+        case 'biennially':
+            basePrice = Number(product.biennialPrice) > 0 ? product.biennialPrice : product.monthlyPrice.mul(21.6); // 24 months * 0.9
+            break;
+        case 'triennially':
+            basePrice = Number(product.triennialPrice) > 0 ? product.triennialPrice : product.monthlyPrice.mul(32.4); // 36 months * 0.9
+            break;
+        default:
+            basePrice = product.monthlyPrice;
     }
 
     let finalPrice = new Prisma.Decimal(basePrice.toString());

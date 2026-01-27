@@ -33,5 +33,6 @@ router.get('/gateway-logs', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), sy
 // Domain Resolver & TLD Sync
 router.post('/domain-resolver', systemController.performDomainResolver);
 router.post('/sync-tlds', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), systemController.syncTLDPricing);
+router.post('/run-cron', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN), systemController.runCronJob);
 
 export default router;

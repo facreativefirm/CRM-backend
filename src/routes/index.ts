@@ -21,6 +21,11 @@ import domainRoutes from './api/domains.routes';
 import securityRoutes from './api/security.routes';
 import settingsRoutes from './api/settings.routes';
 import notificationRoutes from './api/notification.routes';
+import quoteRoutes from './api/quotes.routes';
+import salesTeamRoutes from './api/salesTeam.routes';
+import userApplicationRoutes from './api/userApplication.routes';
+import investorRoutes from './investor.routes';
+import guestSupportRoutes from './api/guestSupport.routes';
 
 const router = Router();
 
@@ -46,6 +51,12 @@ router.use('/domains', domainRoutes);
 router.use('/security', securityRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/quotes', quoteRoutes);
+router.use('/sales-team', salesTeamRoutes);
+router.use('/user-applications', userApplicationRoutes);
+router.use('/investor', investorRoutes);
+router.use('/support-chat', guestSupportRoutes);
+router.use('/guest-support', guestSupportRoutes); // Legacy alias for backward compatibility
 
 export default router;
 

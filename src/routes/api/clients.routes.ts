@@ -17,6 +17,7 @@ router.post('/', validate(createClientSchema), clientsController.createClient);
 router.post('/register', validate(createClientSchema), clientsController.createClient);
 router.get('/:id', clientsController.getClient);
 router.patch('/:id', validate(updateClientSchema), clientsController.updateClient);
+router.post('/:id/send-renewal-notice', clientsController.sendConsolidatedRenewalNotice);
 
 // Contact management
 router.get('/:clientId/contacts', clientsController.getContacts);

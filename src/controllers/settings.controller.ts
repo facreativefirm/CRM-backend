@@ -29,11 +29,16 @@ export const updateSettings = async (req: Request, res: Response) => {
 };
 
 export const getPublicSettings = async (req: Request, res: Response) => {
-    const settings = await prisma.systemSetting.findMany();
-    const settingsObj = settings.reduce((acc: any, curr) => {
-        acc[curr.settingKey] = curr.settingValue;
-        return acc;
-    }, {});
+    try {
+        const settings = await prisma.systemSetting.findMany();
+        const settingsObj = settings.reduce((acc: any, curr) => {
+            acc[curr.settingKey] = curr.settingValue;
+            return acc;
+        }, {});
 
-    res.status(200).json({ status: 'success', data: { settings: settingsObj } });
+        res.status(200).json({ status: 'success', data: { settings: settingsObj } });
+    } catch (err: any) {
+        console.error('Error in getPublicSettings:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    }
 };

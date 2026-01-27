@@ -42,7 +42,7 @@ export const getClients = async (req: AuthRequest, res: Response) => {
  */
 export const getClient = async (req: AuthRequest, res: Response) => {
     const isReseller = req.user?.userType === UserType.RESELLER;
-    const clientId = parseInt(req.params.id);
+    const clientId = parseInt(req.params.id as string);
 
     const client = await prisma.client.findUnique({
         where: { id: clientId },
@@ -81,84 +81,111 @@ export const getClient = async (req: AuthRequest, res: Response) => {
  * Update client details
  */
 export const updateClient = async (req: AuthRequest, res: Response) => {
-    const isReseller = req.user?.userType === UserType.RESELLER;
-    const clientId = parseInt(req.params.id);
+    try {
+        const isReseller = req.user?.userType === UserType.RESELLER;
+        const clientId = parseInt(req.params.id as string);
 
-    // 1. Check existence and permission
-    const existingClient = await prisma.client.findUnique({
-        where: { id: clientId },
-        include: { user: true, contacts: { where: { isPrimary: true } } }
-    });
+        // 1. Check existence and permission
+        const existingClient = await prisma.client.findUnique({
+            where: { id: clientId },
+            include: { user: true, contacts: { where: { isPrimary: true } } }
+        });
 
-    if (!existingClient || (isReseller && existingClient.resellerId !== req.user?.id)) {
-        throw new AppError('Client not found or access denied', 404);
-    }
+        if (!existingClient || (isReseller && existingClient.resellerId !== req.user?.id)) {
+            throw new AppError('Client not found or access denied', 404);
+        }
 
-    const {
-        firstName, lastName, email,
-        companyName, status, currency, notes, groupId,
-        phone, address1, address2, city, state, zip, country
-    } = req.body;
+        const {
+            firstName, lastName, email, whatsAppNumber,
+            companyName, businessType, taxId, status, currency, notes, groupId,
+            phone, address1, address2, city, state, zip, country
+        } = req.body;
 
-    // 2. Perform updates in a transaction
-    const updatedClient = await prisma.$transaction(async (tx) => {
-        // Update User if needed
-        if (firstName || lastName || email) {
+        // 2. Perform updates in a transaction
+        const updatedClient = await prisma.$transaction(async (tx) => {
+            // Map Client status to User status
+            let userStatus: UserStatus = UserStatus.ACTIVE;
+            if (status === 'INACTIVE') userStatus = UserStatus.INACTIVE;
+            if (status === 'CLOSED') userStatus = UserStatus.INACTIVE;
+
+            // Update User if needed
             await tx.user.update({
                 where: { id: existingClient.userId },
                 data: {
                     ...(firstName && { firstName }),
                     ...(lastName && { lastName }),
                     ...(email && { email }),
+                    ...(whatsAppNumber !== undefined && { whatsAppNumber }),
+                    ...(status && { status: userStatus }),
+                    // Note: password is NOT updated here for security
                 }
             });
-        }
 
-        // Update Primary Contact if needed
-        const primaryContact = existingClient.contacts[0];
-        if (primaryContact && (firstName || lastName || email || phone || address1 || address2 || city || state || zip || country)) {
-            await tx.clientContact.update({
-                where: { id: primaryContact.id },
+            // Update or Create Primary Contact
+            const primaryContact = existingClient.contacts[0];
+            const contactData = {
+                ...(firstName && { firstName }),
+                ...(lastName && { lastName }),
+                ...(email && { email }),
+                ...(phone && { phone }),
+                ...(address1 && { address1 }),
+                ...(address2 && { address2 }),
+                ...(city && { city }),
+                ...(state && { state }),
+                ...(zip && { zip }),
+                ...(country && { country }),
+            };
+
+            if (primaryContact) {
+                await tx.clientContact.update({
+                    where: { id: primaryContact.id },
+                    data: contactData
+                });
+            } else if (Object.keys(contactData).length > 0) {
+                await tx.clientContact.create({
+                    data: {
+                        ...contactData,
+                        clientId,
+                        contactType: ContactType.PRIMARY,
+                        isPrimary: true,
+                        firstName: firstName || existingClient.user.firstName || 'Client',
+                        lastName: lastName || existingClient.user.lastName || 'Profile',
+                        email: email || existingClient.user.email,
+                    } as any
+                });
+            }
+
+            // Update Client Profile
+            return await tx.client.update({
+                where: { id: clientId },
                 data: {
-                    ...(firstName && { firstName }),
-                    ...(lastName && { lastName }),
-                    ...(email && { email }),
-                    ...(phone && { phone }),
-                    ...(address1 && { address1 }),
-                    ...(address2 && { address2 }),
-                    ...(city && { city }),
-                    ...(state && { state }),
-                    ...(zip && { zip }),
-                    ...(country && { country }),
-                }
+                    ...(companyName && { companyName }),
+                    ...(businessType && { businessType }),
+                    ...(taxId && { taxId }),
+                    ...(status && { status: status as ClientStatus }),
+                    ...(currency && { currency }),
+                    ...(notes !== undefined && { notes }),
+                    ...(groupId !== undefined && { groupId: groupId ? parseInt(groupId as string) : null }),
+                },
+                include: { user: true, contacts: true }
             });
-        }
-
-        // Update Client Profile
-        return await tx.client.update({
-            where: { id: clientId },
-            data: {
-                ...(companyName && { companyName }),
-                ...(status && { status }),
-                ...(currency && { currency }),
-                ...(notes !== undefined && { notes }),
-                ...(groupId && { groupId }),
-            },
-            include: { user: true, contacts: true }
         });
-    });
 
-    res.status(200).json({
-        status: 'success',
-        data: { client: updatedClient },
-    });
+        res.status(200).json({
+            status: 'success',
+            data: { client: updatedClient },
+        });
+    } catch (error: any) {
+        console.error('[UpdateClient Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
 };
 
 /**
  * Client Contacts Management
  */
 export const createContact = async (req: AuthRequest, res: Response) => {
-    const clientId = parseInt(req.params.clientId);
+    const clientId = parseInt(req.params.clientId as string);
 
     const contact = await prisma.clientContact.create({
         data: {
@@ -175,7 +202,7 @@ export const createContact = async (req: AuthRequest, res: Response) => {
 
 export const getContacts = async (req: AuthRequest, res: Response) => {
     const contacts = await prisma.clientContact.findMany({
-        where: { clientId: parseInt(req.params.clientId) }
+        where: { clientId: parseInt(req.params.clientId as string) }
     });
 
     res.status(200).json({
@@ -190,7 +217,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
  */
 export const createClient = async (req: AuthRequest, res: Response) => {
     const {
-        username, email, password, firstName, lastName,
+        username, email, password, firstName, lastName, whatsAppNumber,
         companyName, businessType, taxId, currency, notes, groupId,
         address1, address2, city, state, zip, country, phone
     } = req.body;
@@ -217,6 +244,7 @@ export const createClient = async (req: AuthRequest, res: Response) => {
                 passwordHash,
                 firstName,
                 lastName,
+                whatsAppNumber,
                 userType: UserType.CLIENT,
                 status: UserStatus.ACTIVE,
             }
@@ -231,7 +259,7 @@ export const createClient = async (req: AuthRequest, res: Response) => {
                 taxId,
                 currency: currency || 'USD',
                 notes,
-                groupId: groupId ? parseInt(groupId) : undefined,
+                groupId: groupId ? parseInt(groupId as string) : undefined,
                 resellerId: req.user?.userType === UserType.RESELLER ? req.user.id : undefined,
             }
         });
@@ -258,8 +286,78 @@ export const createClient = async (req: AuthRequest, res: Response) => {
         return { user, client };
     });
 
+    // 4. Sales Team Tracking: Link prospect to client if matches (automatically awards points)
+    try {
+        const { salesTeamService } = await import('../services/salesTeam.service');
+        await salesTeamService.linkProspectToClient(email, phone, result.client.id, req.user?.id);
+    } catch (err) {
+        console.error('[SalesTeam] Failed to link manual prospect:', err);
+    }
+
     res.status(201).json({
         status: 'success',
         data: result
+    });
+};
+
+/**
+ * Manually trigger a consolidated renewal notice for potentially expiring services/domains
+ */
+export const sendConsolidatedRenewalNotice = async (req: AuthRequest, res: Response) => {
+    const clientId = parseInt(req.params.id as string);
+
+    // 1. Fetch the client
+    const client = await prisma.client.findUnique({
+        where: { id: clientId },
+        include: { user: true }
+    });
+
+    if (!client) throw new AppError('Client not found', 404);
+
+    // 2. Fetch potentially expiring items (expiring in next 30 days)
+    const itemsToRenew: { type: 'SERVICE' | 'DOMAIN', itemId: number }[] = [];
+
+    // Services
+    const services = await prisma.service.findMany({
+        where: {
+            clientId,
+            status: 'ACTIVE',
+            nextDueDate: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+        }
+    });
+    for (const s of services) itemsToRenew.push({ type: 'SERVICE', itemId: s.id });
+
+    // Domains
+    const domains = await prisma.domain.findMany({
+        where: {
+            clientId,
+            status: 'ACTIVE',
+            expiryDate: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+        }
+    });
+    for (const d of domains) itemsToRenew.push({ type: 'DOMAIN', itemId: d.id });
+
+    if (itemsToRenew.length === 0) {
+        return res.status(200).json({
+            status: 'success',
+            message: 'No items currently qualify for renewal notice (nothing expiring in 30 days).'
+        });
+    }
+
+    // 3. Trigger the consolidated invoice and notification logic
+    const { createConsolidatedRenewalInvoice } = await import('../services/invoiceService');
+    const invoice = await createConsolidatedRenewalInvoice(clientId, itemsToRenew);
+
+    if (!invoice) {
+        return res.status(200).json({
+            status: 'success',
+            message: 'A consolidated invoice for these items either already exists or could not be generated.'
+        });
+    }
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Consolidated renewal invoice generated and client notified.',
+        data: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, itemCount: itemsToRenew.length }
     });
 };

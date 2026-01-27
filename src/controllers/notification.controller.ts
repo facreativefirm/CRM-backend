@@ -54,7 +54,7 @@ export const markRead = async (req: AuthRequest, res: Response) => {
         throw new AppError('Unauthorized', 401);
     }
 
-    const notificationId = parseInt(req.params.id);
+    const notificationId = parseInt(req.params.id as string);
     await notificationService.markAsRead(notificationId, req.user.id);
 
     res.status(200).json({

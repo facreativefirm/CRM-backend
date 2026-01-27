@@ -70,7 +70,7 @@ export const getServices = async (req: Request, res: Response) => {
  */
 export const getService = async (req: Request, res: Response) => {
     const category = await prisma.productService.findUnique({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         include: {
             products: {
                 select: {
@@ -128,7 +128,7 @@ export const createService = async (req: Request, res: Response) => {
  */
 export const updateService = async (req: Request, res: Response) => {
     const category = await prisma.productService.update({
-        where: { id: parseInt(req.params.id) },
+        where: { id: parseInt(req.params.id as string) },
         data: req.body,
     });
 
@@ -142,7 +142,7 @@ export const updateService = async (req: Request, res: Response) => {
  * Delete service
  */
 export const deleteService = async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     try {
         await prisma.$transaction(async (tx) => {
