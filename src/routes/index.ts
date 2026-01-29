@@ -26,6 +26,9 @@ import salesTeamRoutes from './api/salesTeam.routes';
 import userApplicationRoutes from './api/userApplication.routes';
 import investorRoutes from './investor.routes';
 import guestSupportRoutes from './api/guestSupport.routes';
+import integrationRoutes from './api/integration.routes';
+import nagadRoutes from './api/nagad.routes';
+import importExportRoutes from './api/importExport.routes';
 
 const router = Router();
 
@@ -56,7 +59,10 @@ router.use('/sales-team', salesTeamRoutes);
 router.use('/user-applications', userApplicationRoutes);
 router.use('/investor', investorRoutes);
 router.use('/support-chat', guestSupportRoutes);
-router.use('/guest-support', guestSupportRoutes); // Legacy alias for backward compatibility
+router.use('/guest-support', guestSupportRoutes);
+router.use('/integration', integrationRoutes);
+router.use('/payments/nagad', nagadRoutes);
+router.use('/import-export', importExportRoutes);
 
 export default router;
 

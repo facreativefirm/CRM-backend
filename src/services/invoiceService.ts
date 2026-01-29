@@ -7,6 +7,7 @@ import { InvestorService } from './investor.service';
 import { sendEmail, EmailTemplates } from './email.service';
 import { generateInvoicePDF } from './pdfService';
 import * as settingsService from './settingsService';
+import { WebhookService } from './webhook.service';
 
 /**
  * Generate a unique invoice number
@@ -40,17 +41,35 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
     // 3. Calculate Totals from actual Order Items
     // Rely on the order.items values which were calculated by pricingService during order creation
     let subtotal = new Prisma.Decimal(0);
-    const invoiceItems = order.items.map((item: any) => {
-        subtotal = subtotal.add(item.totalPrice);
+    const invoiceItems = order.items.flatMap((item: any) => {
         const productName = item.product?.name || `Product #${item.productId}`;
+        const items = [];
 
-        return {
+        // Add the main product line item
+        const productItem = {
             description: `${productName} (ID: ${item.productId}) - ${item.billingCycle} ${item.domainName ? `(${item.domainName})` : ''}`,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            totalAmount: item.totalPrice,
-            serviceId: undefined // Will need to link this if service exists
+            totalAmount: new Prisma.Decimal(item.unitPrice.toString()).mul(item.quantity),
+            serviceId: undefined
         };
+        items.push(productItem);
+        subtotal = subtotal.add(productItem.totalAmount);
+
+        // Add setup fee as a separate line item if non-zero
+        if (item.setupFee && Number(item.setupFee) > 0) {
+            const setupFeeItem = {
+                description: `Setup Fee - ${productName}`,
+                quantity: 1,
+                unitPrice: item.setupFee,
+                totalAmount: item.setupFee,
+                serviceId: undefined
+            };
+            items.push(setupFeeItem);
+            subtotal = subtotal.add(setupFeeItem.totalAmount);
+        }
+
+        return items;
     });
 
     const currentTaxRate = await settingsService.getTaxRate();
@@ -100,6 +119,10 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
     } catch (e) {
         console.error("Invoice email processing failed:", e);
     }
+
+    // Webhook Dispatch
+    WebhookService.dispatch('invoice.created', fullInvoice).catch(e => console.error("Webhook dispatch failed", e));
+
 
     return invoice;
 };
@@ -347,6 +370,12 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
             }
         } catch (e) {
             console.error("Payment confirmation email failed:", e);
+        }
+
+        // Webhook Dispatch
+        if (result.updatedInvoice.status === InvoiceStatus.PAID) {
+            WebhookService.dispatch('invoice.paid', result.updatedInvoice).catch(e => console.error("Webhook dispatch failed", e));
+            WebhookService.dispatch('payment.received', result.transaction).catch(e => console.error("Webhook dispatch failed", e));
         }
     }
 

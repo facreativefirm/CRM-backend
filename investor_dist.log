@@ -13,3 +13,5 @@
 [2026-01-25T07:13:23.821Z] Starting distribution for Invoice #46, Subtotal: 3000
 [2026-01-25T07:13:23.823Z] [InvestorService] Distributing commissions for Invoice #46 (Subtotal: 3000) to 1 investors.
 [2026-01-25T07:13:23.830Z] [InvestorService] Commission of 300 successfully awarded to Investor ID 1
+[2026-01-28T13:08:29.931Z] Starting distribution for Invoice #9, Subtotal: 2
+[2026-01-28T13:08:29.933Z] [InvestorService] No active investors found.
