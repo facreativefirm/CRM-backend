@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 async function main() {
     const logs = await prisma.gatewayLog.findMany({

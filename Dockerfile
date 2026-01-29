@@ -2,29 +2,38 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy package files and prisma config
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
 COPY prisma ./prisma/
+COPY prisma.config.ts ./
 
-RUN npm install --legacy-peer-deps
-RUN npx prisma generate
+# Install pnpm and dependencies
+RUN npm install -g pnpm
+RUN pnpm install --frozen-lockfile
+
+# Generate Prisma client
+RUN pnpm exec prisma generate
 
 COPY . .
 
-RUN npm run build
-
-# Copy generated prisma client to dist to match local structure
-RUN mkdir -p dist/prisma && cp -r prisma/generated dist/prisma/
+RUN pnpm run build
 
 FROM node:20-alpine
 
 WORKDIR /app
 
+# Install pnpm
+RUN npm install -g pnpm
+
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
-# We don't need /app/prisma in the final image if it's in dist, but keeping it serves as backup/reference
+# Copy prisma files for runtime - keep in original location
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
 
 EXPOSE 3006
 
-CMD ["npm", "run", "start"]
+CMD ["pnpm", "run", "start"]

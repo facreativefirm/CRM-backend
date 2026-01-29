@@ -25,15 +25,11 @@
         "paths": {
             "@/*": [
                 "src/*"
-            ],
-            "@prisma/client": [
-                "prisma/generated/client"
             ]
         }
     },
     "include": [
-        "src/**/*",
-        "prisma/generated/client/**/*"
+        "src/**/*"
     ],
     "exclude": [
         "node_modules",
