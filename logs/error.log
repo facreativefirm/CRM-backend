@@ -2547,3 +2547,335 @@
 
 [31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
 2026-01-27 11:20:40:2040 [31merror[39m: [31m❌ Failed to connect to the database on startup:[39m
+2026-01-28 14:03:44:344 [31merror[39m: [31m❌ Failed to connect to the database on startup:[39m
+2026-01-28 14:04:18:418 [31merror[39m: [31m[Socket] Critical Auth Error: [39m
+[31mInvalid `prisma.session.findUnique()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\socketService.ts:51:54[39m
+
+[31m  48     });[39m
+[31m  49 } catch (jwtErr) {[39m
+[31m  50     // 2. If JWT fails, check for a valid DB Session (for Guests)[39m
+[31m→ 51     const session = await prisma.session.findUnique([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:01:51 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getServices (E:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:25)[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.domainTLD.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\tlds.controller.ts:10:41[39m
+
+[31m   7  * List all TLDs[39m
+[31m   8  */[39m
+[31m   9 export const getTLDs = async (req: Request, res: Response) => {[39m
+[31m→ 10     const tlds = await prisma.domainTLD.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.domainTLD.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\tlds.controller.ts:10:41[39m
+
+[31m   7  * List all TLDs[39m
+[31m   8  */[39m
+[31m   9 export const getTLDs = async (req: Request, res: Response) => {[39m
+[31m→ 10     const tlds = await prisma.domainTLD.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getTLDs (E:\Naimur Sharon\WHMCS\backend\src\controllers\tlds.controller.ts:10:18)[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.user.findFirst()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:29:44[39m
+
+[31m  26 } else if (lookupHost) {[39m
+[31m  27     const hostWithoutWww = lookupHost.startsWith('www.') ? lookupHost.slice(4) : lookupHost;[39m
+[31m  28     // Public Storefront Access: Resolve reseller by domain[39m
+[31m→ 29     const reseller = await prisma.user.findFirst([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.user.findFirst()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:29:44[39m
+
+[31m  26 } else if (lookupHost) {[39m
+[31m  27     const hostWithoutWww = lookupHost.startsWith('www.') ? lookupHost.slice(4) : lookupHost;[39m
+[31m  28     // Public Storefront Access: Resolve reseller by domain[39m
+[31m→ 29     const reseller = await prisma.user.findFirst([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getProducts (E:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:29:26)[39m
+2026-01-28 14:05:03:53 [31merror[39m: [31m[Socket] Critical Auth Error: [39m
+[31mInvalid `prisma.session.findUnique()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\socketService.ts:51:54[39m
+
+[31m  48     });[39m
+[31m  49 } catch (jwtErr) {[39m
+[31m  50     // 2. If JWT fails, check for a valid DB Session (for Guests)[39m
+[31m→ 51     const session = await prisma.session.findUnique([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:07:57 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:07:57 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getServices (E:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:25)[39m
+2026-01-28 14:05:07:57 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.domainTLD.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\tlds.controller.ts:10:41[39m
+
+[31m   7  * List all TLDs[39m
+[31m   8  */[39m
+[31m   9 export const getTLDs = async (req: Request, res: Response) => {[39m
+[31m→ 10     const tlds = await prisma.domainTLD.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:07:57 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.domainTLD.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\tlds.controller.ts:10:41[39m
+
+[31m   7  * List all TLDs[39m
+[31m   8  */[39m
+[31m   9 export const getTLDs = async (req: Request, res: Response) => {[39m
+[31m→ 10     const tlds = await prisma.domainTLD.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getTLDs (E:\Naimur Sharon\WHMCS\backend\src\controllers\tlds.controller.ts:10:18)[39m
+2026-01-28 14:05:07:57 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.user.findFirst()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:29:44[39m
+
+[31m  26 } else if (lookupHost) {[39m
+[31m  27     const hostWithoutWww = lookupHost.startsWith('www.') ? lookupHost.slice(4) : lookupHost;[39m
+[31m  28     // Public Storefront Access: Resolve reseller by domain[39m
+[31m→ 29     const reseller = await prisma.user.findFirst([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:07:57 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.user.findFirst()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:29:44[39m
+
+[31m  26 } else if (lookupHost) {[39m
+[31m  27     const hostWithoutWww = lookupHost.startsWith('www.') ? lookupHost.slice(4) : lookupHost;[39m
+[31m  28     // Public Storefront Access: Resolve reseller by domain[39m
+[31m→ 29     const reseller = await prisma.user.findFirst([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getProducts (E:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:29:26)[39m
+2026-01-28 14:05:12:512 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:12:512 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getServices (E:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:25)[39m
+2026-01-28 14:05:16:516 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 14:05:16:516 [31merror[39m: [31mPrismaClientInitializationError: [39m
+[31mInvalid `prisma.productService.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:53[39m
+
+[31m   8  */[39m
+[31m   9 export const getServices = async (req: Request, res: Response) => {[39m
+[31m  10     // Fetch all categories[39m
+[31m→ 11     const allServices = await prisma.productService.findMany([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+[31m    at Vn.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:7640)[39m
+[31m    at Vn.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6663)[39m
+[31m    at Vn.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:121:6370)[39m
+[31m    at async l (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\runtime\library.js:130:9617)[39m
+[31m    at async getServices (E:\Naimur Sharon\WHMCS\backend\src\controllers\productServices.controller.ts:11:25)[39m
+2026-01-28 14:05:32:532 [31merror[39m: [31m❌ Failed to connect to the database on startup:[39m
+2026-01-28 14:05:34:534 [31merror[39m: [31m[Socket] Critical Auth Error: [39m
+[31mInvalid `prisma.session.findUnique()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\socketService.ts:51:54[39m
+
+[31m  48     });[39m
+[31m  49 } catch (jwtErr) {[39m
+[31m  50     // 2. If JWT fails, check for a valid DB Session (for Guests)[39m
+[31m→ 51     const session = await prisma.session.findUnique([39m
+[31mCan't reach database server at `127.0.0.1:3306`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:3306`.[39m
+2026-01-28 16:00:41:041 [31merror[39m: [31mUnhandled Error: Expected property name or '}' in JSON at position 1 (line 1 column 2)[39m
+2026-01-28 16:00:41:041 [31merror[39m: [31mSyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)[39m
+[31m    at JSON.parse (<anonymous>)[39m
+[31m    at parse (E:\Naimur Sharon\WHMCS\backend\node_modules\body-parser\lib\types\json.js:72:19)[39m
+[31m    at E:\Naimur Sharon\WHMCS\backend\node_modules\body-parser\lib\read.js:162:18[39m
+[31m    at AsyncResource.runInAsyncScope (node:async_hooks:214:14)[39m
+[31m    at invokeCallback (E:\Naimur Sharon\WHMCS\backend\node_modules\raw-body\index.js:238:16)[39m
+[31m    at done (E:\Naimur Sharon\WHMCS\backend\node_modules\raw-body\index.js:227:7)[39m
+[31m    at IncomingMessage.onEnd (E:\Naimur Sharon\WHMCS\backend\node_modules\raw-body\index.js:287:7)[39m
+[31m    at IncomingMessage.emit (node:events:518:28)[39m
+[31m    at IncomingMessage.emit (node:domain:489:12)[39m
+[31m    at endReadableNT (node:internal/streams/readable:1698:12)[39m
+2026-01-28 16:00:51:051 [31merror[39m: [31mNagad initialization failed[39m
+2026-01-28 16:00:51:051 [31merror[39m: [31mNagad payment initiation error: Nagad initialization failed[39m
+2026-01-28 16:06:08:68 [31merror[39m: [31mNagad initialization failed[39m
+2026-01-28 16:07:15:715 [31merror[39m: [31mNagad initialization failed[39m
+2026-01-28 16:07:15:715 [31merror[39m: [31mNagad payment initiation error: Nagad initialization failed[39m
+2026-01-28 16:07:27:727 [31merror[39m: [31mNagad initialization failed[39m
+2026-01-28 16:10:07:107 [31merror[39m: [31mNagad initialization failed: connect ETIMEDOUT 103.147.110.152:10080[39m
+2026-01-28 16:12:05:125 [31merror[39m: [31mNagad initialization failed: connect ETIMEDOUT 103.147.110.152:10080[39m
+2026-01-28 16:26:18:2618 [31merror[39m: [31mNagad initialization failed: connect ETIMEDOUT 103.147.110.152:10080[39m
+2026-01-28 16:26:18:2618 [31merror[39m: [31mNagad payment initiation error: Nagad initialization failed[39m
+2026-01-28 16:59:03:593 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Please verify provided data and try again. Call 16167 for help.","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 16:59:03:593 [31merror[39m: [31mNagad payment initiation error: Please verify provided data and try again. Call 16167 for help.[39m
+2026-01-28 16:59:14:5914 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Please verify provided data and try again. Call 16167 for help.","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 16:59:14:5914 [31merror[39m: [31mNagad payment initiation error: Please verify provided data and try again. Call 16167 for help.[39m
+2026-01-28 16:59:35:5935 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Please verify provided data and try again. Call 16167 for help.","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 16:59:35:5935 [31merror[39m: [31mNagad payment initiation error: Please verify provided data and try again. Call 16167 for help.[39m
+2026-01-28 16:59:58:5958 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Please verify provided data and try again. Call 16167 for help.","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 16:59:58:5958 [31merror[39m: [31mNagad payment initiation error: Please verify provided data and try again. Call 16167 for help.[39m
+2026-01-28 17:00:43:043 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Invalid Order Id","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 17:00:43:043 [31merror[39m: [31mNagad payment initiation error: Invalid Order Id[39m
+2026-01-28 17:01:03:13 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Invalid Order Id","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 17:01:03:13 [31merror[39m: [31mNagad payment initiation error: Invalid Order Id[39m
+2026-01-28 17:01:38:138 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Please verify provided data and try again. Call 16167 for help.","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id Length must not be more than20."}[39m
+2026-01-28 17:01:38:138 [31merror[39m: [31mNagad payment initiation error: Please verify provided data and try again. Call 16167 for help.[39m
+2026-01-28 17:14:23:1423 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_068","message":"Please verify provided data and try again. Call 16167 for help.","devMessage":"Error from RPG::::Order request failed. Invalid Order Id. Order Id must be alphanumeric."}[39m
+2026-01-28 17:14:23:1423 [31merror[39m: [31mNagad payment initiation error: Please verify provided data and try again. Call 16167 for help.[39m
+2026-01-28 17:16:58:1658 [31merror[39m: [31mNagad completion failed: RSA_PKCS1_PADDING is no longer supported for private decryption[39m
+2026-01-28 17:16:58:1658 [31merror[39m: [31mNagad payment initiation error: Nagad completion failed[39m
+2026-01-28 17:17:06:176 [31merror[39m: [31mNagad completion failed: RSA_PKCS1_PADDING is no longer supported for private decryption[39m
+2026-01-28 17:17:06:176 [31merror[39m: [31mNagad payment initiation error: Nagad completion failed[39m
+2026-01-28 17:22:54:2254 [31merror[39m: [31mNagad completion failed: RSA_PKCS1_PADDING is no longer supported for private decryption[39m
+2026-01-28 17:22:54:2254 [31merror[39m: [31mNagad payment initiation error: Nagad completion failed[39m
+2026-01-28 17:29:58:2958 [31merror[39m: [31mCrypto Decryption Error: RSA Decryption failed for both PKCS#1 and OAEP. PKCS1-Error: RSA_PKCS1_PADDING is no longer supported for private decryption[39m
+2026-01-28 17:29:58:2958 [31merror[39m: [31mNagad completion failed: RSA Decryption failed for both PKCS#1 and OAEP. PKCS1-Error: RSA_PKCS1_PADDING is no longer supported for private decryption[39m
+2026-01-28 17:29:58:2958 [31merror[39m: [31mNagad payment initiation error: Nagad completion failed[39m
+2026-01-28 17:31:35:3135 [31merror[39m: [31mCrypto Decryption Error Details: RSA Decryption failed. PKCS1-Error: RSA_PKCS1_PADDING is no longer supported for private decryption. OAEP-Error: error:02000079:rsa routines::oaep decoding error[39m
+2026-01-28 17:31:35:3135 [31merror[39m: [31mNagad completion failed: RSA Decryption failed. PKCS1-Error: RSA_PKCS1_PADDING is no longer supported for private decryption. OAEP-Error: error:02000079:rsa routines::oaep decoding error[39m
+2026-01-28 17:31:35:3135 [31merror[39m: [31mNagad payment initiation error: Nagad completion failed[39m
+2026-01-28 17:32:03:323 [31merror[39m: [31mCrypto Decryption Error Details: RSA Decryption failed. PKCS1-Error: RSA_PKCS1_PADDING is no longer supported for private decryption. OAEP-Error: error:02000079:rsa routines::oaep decoding error[39m
+2026-01-28 17:32:03:323 [31merror[39m: [31mNagad completion failed: RSA Decryption failed. PKCS1-Error: RSA_PKCS1_PADDING is no longer supported for private decryption. OAEP-Error: error:02000079:rsa routines::oaep decoding error[39m
+2026-01-28 17:32:03:323 [31merror[39m: [31mNagad payment initiation error: Nagad completion failed[39m
+2026-01-28 17:34:07:347 [31merror[39m: [31mNagad completion failed: {"reason":"16_0006_112","message":"Invalid Payment Reference Id Format","devMessage":"Error from RPG::::Order request failed. Invalid Payment Reference Id Format."}[39m
+2026-01-28 17:34:07:347 [31merror[39m: [31mNagad payment initiation error: Invalid Payment Reference Id Format[39m
+2026-01-28 17:36:46:3646 [31merror[39m: [31mNagad payment initiation error: [39m
+[31mInvalid `prisma.gatewayLog.create()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\controllers\nagad.controller.ts:83:37[39m
+
+[31m  80 );[39m
+[31m  81 [39m
+[31m  82 // Log the initiation attempt[39m
+[31m→ 83 await prisma.gatewayLog.create([39m
+[31mThe column `createdAt` does not exist in the current database.[39m
+2026-01-28 18:13:26:1326 [31merror[39m: [31mNagad callback error: Initiation log not found[39m
+2026-01-28 18:42:27:4227 [31merror[39m: [31mNagad callback error: Initiation log not found[39m
+2026-01-29 12:05:05:55 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_052","message":"Invalid Merchant","devMessage":"Error from RPG::::Order request failed. Invalid Merchant."}[39m
+2026-01-29 12:05:05:55 [31merror[39m: [31mNagad payment initiation error: Invalid Merchant[39m
+2026-01-29 12:05:18:518 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_052","message":"Invalid Merchant","devMessage":"Error from RPG::::Order request failed. Invalid Merchant."}[39m
+2026-01-29 12:05:18:518 [31merror[39m: [31mNagad payment initiation error: Invalid Merchant[39m

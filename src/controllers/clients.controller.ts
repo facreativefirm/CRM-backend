@@ -4,6 +4,7 @@ import { AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ClientStatus, UserType, ContactType, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { WebhookService } from '../services/webhook.service';
 
 /**
  * List clients with reseller isolation
@@ -175,6 +176,10 @@ export const updateClient = async (req: AuthRequest, res: Response) => {
             status: 'success',
             data: { client: updatedClient },
         });
+
+        // Webhook Dispatch
+        WebhookService.dispatch('client.updated', updatedClient).catch(e => console.error("Webhook dispatch failed", e));
+
     } catch (error: any) {
         console.error('[UpdateClient Error]:', error);
         res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
@@ -293,6 +298,10 @@ export const createClient = async (req: AuthRequest, res: Response) => {
     } catch (err) {
         console.error('[SalesTeam] Failed to link manual prospect:', err);
     }
+
+    // Webhook Dispatch
+    WebhookService.dispatch('client.created', result.client).catch(e => console.error("Webhook dispatch failed", e));
+
 
     res.status(201).json({
         status: 'success',

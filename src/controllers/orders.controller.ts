@@ -169,9 +169,15 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         console.log(`[DEBUG] Creating order for client ${clientId} with data:`, JSON.stringify(orderData, null, 2));
         const order = await orderService.createOrder(orderData);
 
+        // Fetch the fresh order with invoices included to return to the frontend
+        const fullOrder = await prisma.order.findUnique({
+            where: { id: order.id },
+            include: { invoices: true, items: true }
+        });
+
         res.status(201).json({
             status: 'success',
-            data: { order },
+            data: { order: fullOrder },
         });
     } catch (error: any) {
         console.error("Order Creation Error:", error);

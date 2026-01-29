@@ -31,8 +31,21 @@ export const updateSettings = async (req: Request, res: Response) => {
 export const getPublicSettings = async (req: Request, res: Response) => {
     try {
         const settings = await prisma.systemSetting.findMany();
+        const safeKeys = [
+            'appName',
+            'supportEmail',
+            'maintenanceMode',
+            'defaultLanguage',
+            'defaultCurrency',
+            'phoneNumber',
+            'taxRate',
+            'taxName'
+        ];
+
         const settingsObj = settings.reduce((acc: any, curr) => {
-            acc[curr.settingKey] = curr.settingValue;
+            if (safeKeys.includes(curr.settingKey)) {
+                acc[curr.settingKey] = curr.settingValue;
+            }
             return acc;
         }, {});
 

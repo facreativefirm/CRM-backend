@@ -10,6 +10,7 @@ import { generateInvoicePDF } from './pdfService';
 import * as notificationService from './notificationService';
 import { MarketingService } from './marketingService';
 import { ResellerService } from './resellerService';
+import { WebhookService } from './webhook.service';
 
 const formatPrice = (amount: any) => `${parseFloat(amount).toFixed(2)}`;
 
@@ -301,6 +302,10 @@ export const createOrder = async (input: CreateOrderInput) => {
             `New order placed by ${client.user.firstName || client.companyName} (${formatPrice(order.totalAmount)})`,
             `/admin/orders/${order.id}`
         );
+
+        // Webhook Dispatch
+        WebhookService.dispatch('order.created', order).catch(e => console.error("Webhook dispatch failed", e));
+
     } catch (postError) {
         console.error("Critical error in post-order processing:", postError);
         // We don't re-throw here because the order IS created in the DB at this point (outside transaction)
@@ -393,6 +398,10 @@ export const updateOrderStatus = async (orderId: number, newStatus: OrderStatus,
     } catch (e) {
         console.error("Failed to send order status notification", e);
     }
+
+    // Webhook Dispatch
+    WebhookService.dispatch('order.status_changed', updatedOrder).catch(e => console.error("Webhook dispatch failed", e));
+
 
     // Side Effects for Order Completion
     if (newStatus === OrderStatus.COMPLETED && order.status !== OrderStatus.COMPLETED) {

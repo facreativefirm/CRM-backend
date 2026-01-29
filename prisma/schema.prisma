@@ -27,6 +27,11 @@ model Client {
   updatedAt            DateTime                 @updatedAt
   guestIpAddress       String?
   isGuest              Boolean                  @default(false)
+  erpMetadata          String?                  @db.LongText
+  externalId           String?                  @unique
+  lastSyncAt           DateTime?
+  syncError            String?                  @db.Text
+  syncStatus           SyncStatus               @default(PENDING)
   affiliate            Affiliate?
   referredAffiliates   AffiliateReferral[]      @relation("ReferredClients")
   billableItems        BillableItem[]
@@ -321,21 +326,6 @@ model DomainTLD {
   @@map("domaintld")
 }
 
-model GatewayLog {
-  id            Int      @id @default(autoincrement())
-  gateway       String
-  transactionId String?
-  requestData   String?  @db.LongText
-  responseData  String?  @db.LongText
-  status        String
-  timestamp     DateTime @default(now())
-
-  @@index([gateway], map: "GatewayLog_gateway_idx")
-  @@index([timestamp], map: "GatewayLog_timestamp_idx")
-  @@index([transactionId], map: "GatewayLog_transactionId_idx")
-  @@map("gatewaylog")
-}
-
 model Invoice {
   id                  Int                  @id @default(autoincrement())
   invoiceNumber       String               @unique(map: "Invoice_invoiceNumber_key")
@@ -357,6 +347,10 @@ model Invoice {
   notes               String?              @db.Text
   deletedAt           DateTime?
   isDeleted           Boolean              @default(false)
+  externalId          String?              @unique
+  lastSyncAt          DateTime?
+  syncError           String?              @db.Text
+  syncStatus          SyncStatus           @default(PENDING)
   investorCommissions InvestorCommission[]
   client              Client               @relation(fields: [clientId], references: [id])
   order               Order?               @relation(fields: [orderId], references: [id])
@@ -543,6 +537,10 @@ model Product {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
   serviceId        Int
+  externalId       String?              @unique
+  glAccountCode    String?
+  lastSyncAt       DateTime?
+  syncStatus       SyncStatus           @default(PENDING)
   domainProduct    DomainProduct?
   orderItems       OrderItem[]
   server           Server?              @relation(fields: [serverId], references: [id])
@@ -931,18 +929,20 @@ model TaxRate {
 }
 
 model Transaction {
-  id              Int      @id @default(autoincrement())
+  id              Int        @id @default(autoincrement())
   invoiceId       Int
   gateway         String
-  amount          Decimal  @db.Decimal(10, 2)
-  fees            Decimal? @db.Decimal(10, 2)
+  amount          Decimal    @db.Decimal(10, 2)
+  fees            Decimal?   @db.Decimal(10, 2)
   status          String
-  transactionId   String?  @unique(map: "Transaction_transactionId_key")
-  gatewayResponse String?  @db.LongText
-  adminNotes      String?  @db.Text
-  createdAt       DateTime @default(now())
+  transactionId   String?    @unique(map: "Transaction_transactionId_key")
+  gatewayResponse String?    @db.LongText
+  adminNotes      String?    @db.Text
+  createdAt       DateTime   @default(now())
+  externalId      String?    @unique
+  syncStatus      SyncStatus @default(PENDING)
   refunds         Refund[]
-  invoice         Invoice  @relation(fields: [invoiceId], references: [id])
+  invoice         Invoice    @relation(fields: [invoiceId], references: [id])
 
   @@index([createdAt], map: "Transaction_createdAt_idx")
   @@index([gateway], map: "Transaction_gateway_idx")
@@ -1365,10 +1365,59 @@ model GuestActivity {
   @@map("guestactivity")
 }
 
+model WebhookSubscription {
+  id           Int      @id @default(autoincrement())
+  targetUrl    String
+  events       String   @db.LongText
+  secretKey    String
+  isActive     Boolean  @default(true)
+  failureCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@map("webhooksubscription")
+}
+
+model IntegrationQueue {
+  id            Int      @id @default(autoincrement())
+  entityType    String
+  entityId      Int
+  action        String
+  payload       String   @db.LongText
+  status        String   @default("PENDING")
+  attempts      Int      @default(0)
+  createdAt     DateTime @default(now())
+  nextAttemptAt DateTime @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@map("integrationqueue")
+}
+
+model GatewayLog {
+  id            Int      @id @default(autoincrement())
+  gateway       String
+  transactionId String?
+  requestData   String?  @db.LongText
+  responseData  String?  @db.LongText
+  status        String
+  timestamp     DateTime @default(now())
+
+  @@index([gateway], map: "GatewayLog_gateway_idx")
+  @@index([timestamp], map: "GatewayLog_timestamp_idx")
+  @@index([transactionId], map: "GatewayLog_transactionId_idx")
+  @@map("gatewaylog")
+}
+
 enum ClientStatus {
   ACTIVE
   INACTIVE
   CLOSED
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  IGNORED
 }
 
 enum ContactType {
