@@ -261,6 +261,6 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName, tax
 /**
  * Generate Invoice PDF Buffer
  */
-export const generateInvoicePDF = async (invoice: any, appName: string = 'WHMCS CRM', taxName: string = 'Tax', currencySymbol: string = '$'): Promise<Buffer> => {
+export const generateInvoicePDF = async (invoice: any, appName: string = 'FA CRM', taxName: string = 'Tax', currencySymbol: string = '$'): Promise<Buffer> => {
     return await renderToBuffer(<InvoiceDocument invoice={invoice} appName={appName} taxName={taxName} currencySymbol={currencySymbol} />);
 };

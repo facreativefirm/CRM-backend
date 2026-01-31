@@ -97,30 +97,30 @@ export const updateClient = async (req: AuthRequest, res: Response) => {
         }
 
         const {
-            firstName, lastName, email, whatsAppNumber,
+            firstName, lastName, email, whatsAppNumber, password,
             companyName, businessType, taxId, status, currency, notes, groupId,
             phone, address1, address2, city, state, zip, country
         } = req.body;
 
         // 2. Perform updates in a transaction
         const updatedClient = await prisma.$transaction(async (tx) => {
-            // Map Client status to User status
+            // Map Client status to User status for nested update
             let userStatus: UserStatus = UserStatus.ACTIVE;
-            if (status === 'INACTIVE') userStatus = UserStatus.INACTIVE;
-            if (status === 'CLOSED') userStatus = UserStatus.INACTIVE;
+            if (status === 'INACTIVE' || status === 'CLOSED') userStatus = UserStatus.INACTIVE;
 
-            // Update User if needed
-            await tx.user.update({
-                where: { id: existingClient.userId },
-                data: {
-                    ...(firstName && { firstName }),
-                    ...(lastName && { lastName }),
-                    ...(email && { email }),
-                    ...(whatsAppNumber !== undefined && { whatsAppNumber }),
-                    ...(status && { status: userStatus }),
-                    // Note: password is NOT updated here for security
-                }
-            });
+            // Prepare User Nested Update Data
+            const userUpdateData: any = {
+                ...(firstName && { firstName }),
+                ...(lastName && { lastName }),
+                ...(email && { email }),
+                ...(whatsAppNumber !== undefined && { whatsAppNumber }),
+                ...(status && { status: userStatus }),
+            };
+
+            // Add passwordHash if password is provided
+            if (password && typeof password === 'string' && password.trim().length >= 8) {
+                userUpdateData.passwordHash = await bcrypt.hash(password, 12);
+            }
 
             // Update or Create Primary Contact
             const primaryContact = existingClient.contacts[0];
@@ -156,7 +156,7 @@ export const updateClient = async (req: AuthRequest, res: Response) => {
                 });
             }
 
-            // Update Client Profile
+            // Update Client Profile with Nested User Update
             return await tx.client.update({
                 where: { id: clientId },
                 data: {
@@ -166,7 +166,13 @@ export const updateClient = async (req: AuthRequest, res: Response) => {
                     ...(status && { status: status as ClientStatus }),
                     ...(currency && { currency }),
                     ...(notes !== undefined && { notes }),
-                    ...(groupId !== undefined && { groupId: groupId ? parseInt(groupId as string) : null }),
+                    ...(groupId !== undefined && {
+                        group: groupId ? { connect: { id: parseInt(groupId as string) } } : { disconnect: true }
+                    }),
+                    // NESTED USER UPDATE
+                    user: {
+                        update: userUpdateData
+                    }
                 },
                 include: { user: true, contacts: true }
             });

@@ -134,6 +134,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 export const restrictTo = (...roles: UserType[]) => {
     return (req: AuthRequest, res: Response, next: NextFunction) => {
         if (!req.user || !roles.includes(req.user.userType)) {
+            logger.warn(`[Auth] Permission denied for user ${req.user?.email}. Role: ${req.user?.userType}, Required: ${roles.join(', ')}`);
             throw new AppError('You do not have permission to perform this action', 403);
         }
         next();

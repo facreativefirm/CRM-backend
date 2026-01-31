@@ -50,7 +50,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
         where: {
             ...(serviceId && { serviceId: parseInt(serviceId as string) }),
             ...(type && { productType: type as any }),
-            status: ProductStatus.ACTIVE,
+            ...(req.query.admin !== 'true' && { status: ProductStatus.ACTIVE }),
         },
         select: {
             id: true,
@@ -75,6 +75,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
             serviceId: true,
             // updatedAt is EXCLUDED to prevent crashes from invalid dates
             productService: true,
+            domainProduct: true,
             resellerProducts: {
                 where: targetResellerId ? { resellerId: targetResellerId } : { id: -1 },
             },
@@ -120,12 +121,17 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
             };
         }
         return product;
-    }).filter(p => p.status === ProductStatus.ACTIVE); // Filter out hidden products
+    });
+
+    // Filter by status ONLY for non-admins (Public/Client shop)
+    const finalProducts = req.query.admin === 'true'
+        ? transformedProducts
+        : transformedProducts.filter(p => p.status === ProductStatus.ACTIVE);
 
     res.status(200).json({
         status: 'success',
-        results: transformedProducts.length,
-        data: { products: transformedProducts },
+        results: finalProducts.length,
+        data: { products: finalProducts },
     });
 };
 

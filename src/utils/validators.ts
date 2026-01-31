@@ -6,7 +6,11 @@ export const registerSchema = z.object({
     body: z.object({
         username: z.string().min(3).max(100),
         email: z.string().email(),
-        password: z.string().min(8),
+        password: z.string()
+            .min(8, "Password must be at least 8 characters")
+            .regex(/[A-Z]/, "Password must contain at least one capital letter")
+            .regex(/[0-9]/, "Password must contain at least one number")
+            .regex(/[^A-Za-z0-9]/, "Password must contain at least one symbol"),
         firstName: z.string().optional(),
         lastName: z.string().optional(),
         phoneNumber: z.string().optional(),
@@ -19,6 +23,23 @@ export const loginSchema = z.object({
     body: z.object({
         identifier: z.string().min(3),
         password: z.string(),
+    }),
+});
+
+export const updateMeSchema = z.object({
+    body: z.object({
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        phoneNumber: z.string().optional(),
+        whatsAppNumber: z.string().optional(),
+        currentPassword: z.string().optional(),
+        newPassword: z.string()
+            .min(8, "Password must be at least 8 characters")
+            .regex(/[A-Z]/, "Password must contain at least one capital letter")
+            .regex(/[0-9]/, "Password must contain at least one number")
+            .regex(/[^A-Za-z0-9]/, "Password must contain at least one symbol")
+            .optional()
+            .or(z.literal('')),
     }),
 });
 
@@ -44,7 +65,11 @@ export const createClientSchema = z.object({
     body: z.object({
         username: z.string().min(3).max(100),
         email: z.string().email(),
-        password: z.string().min(8),
+        password: z.string()
+            .min(8, "Password must be at least 8 characters")
+            .regex(/[A-Z]/, "Password must contain at least one capital letter")
+            .regex(/[0-9]/, "Password must contain at least one number")
+            .regex(/[^A-Za-z0-9]/, "Password must contain at least one symbol"),
         firstName: z.string().min(1),
         lastName: z.string().min(1),
         companyName: z.string().optional(),
@@ -72,6 +97,13 @@ export const updateClientSchema = z.object({
         firstName: z.string().optional(),
         lastName: z.string().optional(),
         email: z.string().email().optional(),
+        password: z.string()
+            .min(8, "Password must be at least 8 characters")
+            .regex(/[A-Z]/, "Password must contain at least one capital letter")
+            .regex(/[0-9]/, "Password must contain at least one number")
+            .regex(/[^A-Za-z0-9]/, "Password must contain at least one symbol")
+            .optional()
+            .or(z.literal('')),
 
         // Client fields
         companyName: z.string().optional(),
@@ -144,17 +176,17 @@ export const productSchema = z.object({
         pricingModel: z.any(), // Match PricingModel
         description: z.string().optional(),
         features: z.any().optional(),
-        setupFee: z.number().optional(),
-        monthlyPrice: z.number().optional(),
-        quarterlyPrice: z.number().optional(),
-        semiAnnualPrice: z.number().optional(),
-        annualPrice: z.number().optional(),
-        biennialPrice: z.number().optional(),
-        triennialPrice: z.number().optional(),
+        setupFee: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
+        monthlyPrice: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
+        quarterlyPrice: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
+        semiAnnualPrice: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
+        annualPrice: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
+        biennialPrice: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
+        triennialPrice: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),
         status: z.any().optional(), // Match ProductStatus
-        stockQuantity: z.number().nullable().optional(),
+        stockQuantity: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? null : val),
         autoSetup: z.boolean().optional(),
-        serverId: z.number().optional(),
+        serverId: z.number().nullable().optional(),
     }),
 });
 

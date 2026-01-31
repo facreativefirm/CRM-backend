@@ -257,3 +257,54 @@ export const logout = async (req: any, res: Response) => {
         message: 'Logged out successfully',
     });
 };
+
+export const updateMe = async (req: any, res: Response) => {
+    const { firstName, lastName, phoneNumber, whatsAppNumber, currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    // Fetch user
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const updateData: any = {
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(phoneNumber !== undefined && { phoneNumber }),
+        ...(whatsAppNumber !== undefined && { whatsAppNumber }),
+    };
+
+    // Password Update Logic
+    if (newPassword) {
+        if (!currentPassword) {
+            throw new AppError('Please provide your current password to set a new one', 400);
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isMatch) {
+            throw new AppError('The current password you provided is incorrect', 400);
+        }
+
+        updateData.passwordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+            id: true,
+            username: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            whatsAppNumber: true,
+            userType: true,
+            status: true,
+        }
+    });
+
+    res.status(200).json({
+        status: 'success',
+        data: { user: updatedUser },
+    });
+};

@@ -2879,3 +2879,156 @@
 2026-01-29 12:05:05:55 [31merror[39m: [31mNagad payment initiation error: Invalid Merchant[39m
 2026-01-29 12:05:18:518 [31merror[39m: [31mNagad initialization failed: {"reason":"16_0006_052","message":"Invalid Merchant","devMessage":"Error from RPG::::Order request failed. Invalid Merchant."}[39m
 2026-01-29 12:05:18:518 [31merror[39m: [31mNagad payment initiation error: Invalid Merchant[39m
+2026-01-31 13:00:00:00 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:05:00:50 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:10:00:100 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:15:00:150 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:20:00:200 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:30:00:300 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:35:00:350 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:40:00:400 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:45:00:450 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:50:00:500 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 13:55:00:550 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 14:00:00:00 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 14:05:00:50 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 14:10:00:100 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 14:15:00:150 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 14:20:00:200 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m
+2026-01-31 14:25:00:250 [31merror[39m: [31mError in webhook retry worker: [39m
+[31mInvalid `prisma.integrationQueue.findMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63[39m
+
+[31m  45 const { WebhookService } = await import('./webhook.service');[39m
+[31m  46 [39m
+[31m  47 try {[39m
+[31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
+[31m[39m

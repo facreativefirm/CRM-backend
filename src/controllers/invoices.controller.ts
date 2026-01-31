@@ -580,7 +580,7 @@ export const sendInvoiceNotification = async (req: AuthRequest, res: Response) =
             throw new AppError('Cannot send notification for a paid invoice.', 400);
         }
 
-        const appName = await settingsService.getSetting('appName', 'WHMCS CRM');
+        const appName = await settingsService.getSetting('appName', 'FA CRM');
         const taxName = await settingsService.getSetting('taxName', 'Tax');
         const currencySymbol = await settingsService.getCurrencySymbol();
 

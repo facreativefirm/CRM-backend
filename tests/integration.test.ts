@@ -8,7 +8,7 @@ jest.mock('../src/config/database', () => ({
     default: {
         systemSetting: {
             findMany: jest.fn().mockResolvedValue([
-                { settingKey: 'siteName', settingValue: 'WHMCS CRM', settingGroup: 'GENERAL' }
+                { settingKey: 'siteName', settingValue: 'FA CRM', settingGroup: 'GENERAL' }
             ]),
         },
         user: {

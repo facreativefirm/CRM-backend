@@ -103,7 +103,7 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
 
     // 4. Send Email with PDF Attachment
     try {
-        const appName = await settingsService.getSetting('appName', 'WHMCS CRM');
+        const appName = await settingsService.getSetting('appName', 'FA CRM');
         const taxName = await settingsService.getSetting('taxName', 'Tax');
         const currencySymbol = await settingsService.getCurrencySymbol();
         const pdfBuffer = await generateInvoicePDF(fullInvoice, appName, taxName, currencySymbol);
@@ -939,7 +939,7 @@ export const createConsolidatedRenewalInvoice = async (clientId: number, items: 
 
         // Send Email (New or Updated)
         try {
-            const appName = await settingsService.getSetting('appName', 'WHMCS CRM');
+            const appName = await settingsService.getSetting('appName', 'FA CRM');
             const taxName = await settingsService.getSetting('taxName', 'Tax');
             const currencySymbol = await settingsService.getCurrencySymbol();
             const pdfBuffer = await generateInvoicePDF(finalInvoice, appName, taxName, currencySymbol);

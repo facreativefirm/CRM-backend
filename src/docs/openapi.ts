@@ -1,7 +1,7 @@
 export const openApiSpec = {
     openapi: '3.0.0',
     info: {
-        title: 'WHMCS CRM API',
+        title: 'FA CRM API',
         version: '1.0.0',
         description: 'Production-ready WHMCS-style backend API for service management, billing, and support.',
     },

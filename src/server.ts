@@ -57,7 +57,7 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>WHMCS Backend | Production Ready</title>
+            <title>WHMCS Backend</title>
             <style>
                 :root {
                     --primary: #6366f1;

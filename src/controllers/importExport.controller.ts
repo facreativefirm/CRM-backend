@@ -19,6 +19,9 @@ export const exportData = async (req: AuthRequest, res: Response) => {
         case 'invoices':
             csvData = await ImportExportService.exportInvoices();
             break;
+        case 'product_services':
+            csvData = await ImportExportService.exportProductServices();
+            break;
         default:
             throw new AppError('Invalid export type', 400);
     }
@@ -43,6 +46,9 @@ export const importData = async (req: AuthRequest, res: Response) => {
             break;
         case 'products':
             result = await ImportExportService.importProducts(csvContent);
+            break;
+        case 'product_services':
+            result = await ImportExportService.importProductServices(csvContent);
             break;
         // Future: products, invoices
         default:
