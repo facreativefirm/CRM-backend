@@ -133,16 +133,32 @@ export class NagadService {
                 }
             );
 
+
             logger.info('Nagad initialization successful');
+
+            // Validate that we received sensitiveData
+            if (!response.data || !response.data.sensitiveData) {
+                logger.error(`Nagad initialization returned empty sensitiveData. Full response: ${JSON.stringify(response.data)}`);
+                throw new Error('Nagad initialization failed: No sensitiveData received from Nagad API');
+            }
 
             return {
                 orderId: orderIdWithSuffix,
-                sensitiveData: response.data.sensitiveData // This contains encrypted paymentReferenceId and challenge
+                sensitiveData: response.data.sensitiveData, // This contains encrypted paymentReferenceId and challenge
+                paymentReferenceId: response.data.paymentReferenceId // May be present in some responses
             };
         } catch (error: any) {
             const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-            logger.error(`Nagad initialization failed: ${errorData}`);
-            throw new Error(error.response?.data?.message || 'Nagad initialization failed');
+            const errorStatus = error.response?.status;
+            logger.error(`Nagad initialization failed [Status: ${errorStatus}]: ${errorData}`);
+
+            // Log request details for debugging
+            if (error.config) {
+                logger.debug(`Failed request URL: ${error.config.url}`);
+                logger.debug(`Failed request method: ${error.config.method}`);
+            }
+
+            throw new Error(error.response?.data?.message || error.message || 'Nagad initialization failed');
         }
     }
 

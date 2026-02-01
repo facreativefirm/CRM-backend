@@ -42,16 +42,30 @@ export class PaymentGatewayService {
     static async initNagadPayment(amount: number, invoiceId: string) {
         logger.info(`Initializing Nagad payment for Invoice: ${invoiceId}, Amount: ${amount}`);
 
-        // Nagad requires sensitive data encryption (RSA)
-        // Step 1: Initialize (Key exchange)
-        // Step 2: Checkout
+        try {
+            const nagadService = (await import('./nagad.service')).default;
 
-        return {
-            status: 'success',
-            gateway: 'NAGAD',
-            redirectURL: `https://mock-gateway.com/nagad/pay?invoice=${invoiceId}&amount=${amount}`,
-            paymentID: `NG-${Date.now()}`
-        };
+            // Get client IP from request context (you may need to pass this from controller)
+            const clientIp = '103.191.240.1'; // Default Bangladesh IP for now
+
+            const result = await nagadService.initializePayment({
+                invoiceId,
+                amount,
+                orderId: invoiceId,
+                clientIp
+            });
+
+            return {
+                status: 'success',
+                gateway: 'NAGAD',
+                orderId: result.orderId,
+                sensitiveData: result.sensitiveData,
+                paymentReferenceId: result.paymentReferenceId
+            };
+        } catch (error: any) {
+            logger.error('Nagad payment initiation error:', error);
+            throw new AppError(error.message || 'Nagad payment initialization failed', 500);
+        }
     }
 
     /**
