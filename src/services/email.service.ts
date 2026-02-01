@@ -80,6 +80,10 @@ const getEmailSettings = async () => {
         config[s.settingKey] = s.settingValue;
     });
 
+    console.log(`[EmailService] Loaded ${settings.length} SMTP settings from database:`,
+        Object.keys(config).map(k => `${k}: ${k === 'smtpPass' ? '***' : config[k]}`).join(', ')
+    );
+
     return config;
 };
 
@@ -107,10 +111,20 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
         console.error('White-label email detection failed:', err);
     }
 
-    if (!config.smtpHost || !config.smtpUser) {
-        console.warn(`Email settings not configured. App: ${appName}. Logging to console.`);
+    if (!config.smtpHost || !config.smtpUser || !config.smtpPass) {
+        console.error(`[EmailService] CRITICAL: Email settings are INCOMPLETE in the database. 
+            Required: smtpHost, smtpUser, smtpPass.
+            Current Config: ${JSON.stringify(config)}
+            Target: ${to} | Subject: ${subject}`);
         return;
     }
+
+    console.log(`[EmailService] Attempting to send email:
+        To: ${to}
+        Subject: ${subject}
+        Host: ${config.smtpHost}
+        User: ${config.smtpUser}
+        Port: ${config.smtpPort || '587'}`);
 
     try {
         const transporter = nodemailer.createTransport({
@@ -123,6 +137,10 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
             },
         });
 
+        // Verify connection configuration
+        await transporter.verify();
+        console.log(`[EmailService] SMTP connection verified successfully.`);
+
         const info = await transporter.sendMail({
             from: `"${appName}" <${config.smtpFromEmail || config.smtpUser}>`,
             to,
@@ -131,9 +149,16 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
             attachments: attachments || [],
         });
 
+        console.log(`[EmailService] Email successfully sent to ${to}. MessageID: ${info.messageId}`);
         return info;
-    } catch (error) {
-        console.error('Error sending email:', error);
+    } catch (error: any) {
+        console.error('[EmailService] FAILED to send email:', {
+            target: to,
+            subject: subject,
+            errorMessage: error.message,
+            errorCode: error.code,
+            command: error.command
+        });
         throw error;
     }
 };
@@ -605,6 +630,49 @@ export const EmailTemplates = {
             </div>
 
             <p style="margin: 0 0 32px 0;">You can view the details in the administrative dashboard.</p>
+        `
+    }),
+
+    serviceCancellationRequest: (serviceName: string, clientName: string, type: string, reason: string) => ({
+        subject: `ACTION REQUIRED: Cancellation Request for ${serviceName}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Service Cancellation Request</h2>
+            <p style="margin: 0 0 24px 0;">A client has requested to cancel their service. Administrative action is required.</p>
+            
+            <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Service Name</td>
+                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${serviceName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Client</td>
+                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${clientName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Type</td>
+                        <td style="padding-bottom: 12px; color: #ef4444; font-size: 14px; font-weight: 600; text-align: right;">${type}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-top: 12px; border-top: 1px solid #fee2e2; color: #6b7280; font-size: 14px; font-weight: 500;">Reason</td>
+                        <td style="padding-top: 12px; border-top: 1px solid #fee2e2; color: #111827; font-size: 14px; text-align: right;">${reason}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Please log in to the admin panel to process this request (Suspend, Terminate, or Reach out to the client).</p>
+            
+            <div style="text-align: center;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/services" style="background-color: #111827; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Admin Panel</a>
+            </div>
+        `
+    }),
+
+    notification: (subject: string, message: string) => ({
+        subject,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">${subject}</h2>
+            <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">${message}</p>
         `
     })
 };

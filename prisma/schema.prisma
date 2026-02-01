@@ -277,6 +277,7 @@ model Domain {
   emailForwarding           Boolean                    @default(false)
   idProtection              Boolean                    @default(false)
   nameservers               String?                    @db.Text
+  eppCode                   String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   client                    Client                     @relation(fields: [clientId], references: [id])
@@ -743,6 +744,7 @@ model Service {
   username                  String?
   passwordHash              String?
   ipAddress                 String?
+  controlPanelUrl           String?
   diskUsage                 Decimal?                   @db.Decimal(10, 2)
   bandwidthUsage            Decimal?                   @db.Decimal(10, 2)
   configOptions             String?                    @db.Text

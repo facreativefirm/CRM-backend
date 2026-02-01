@@ -3032,3 +3032,65 @@
 [31m  47 try {[39m
 [31m→ 48     const pendingJobs = await prisma.integrationQueue.findMany([39m
 [31m[39m
+2026-02-01 15:53:52:5352 [31merror[39m: [31mUnhandled Error: [39m
+[31mInvalid `prisma.notification.updateMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\notificationService.ts:104:38[39m
+
+[31m  101 };[39m
+[31m  102 [39m
+[31m  103 export const markAsRead = async (id: number, userId: number) => {[39m
+[31m→ 104     return await prisma.notification.updateMany({[39m
+[31m            where: {[39m
+[31m              userId: 1,[39m
+[31m          +   id: {[39m
+[31m          +     equals: Int | IntFieldRefInput,[39m
+[31m          +     in: Int[] | ListIntFieldRefInput,[39m
+[31m          +     notIn: Int[] | ListIntFieldRefInput,[39m
+[31m          +     lt: Int | IntFieldRefInput,[39m
+[31m          +     lte: Int | IntFieldRefInput,[39m
+[31m          +     gt: Int | IntFieldRefInput,[39m
+[31m          +     gte: Int | IntFieldRefInput,[39m
+[31m          +     not: Int | NestedIntFilter[39m
+[31m          +   }[39m
+[31m            },[39m
+[31m            data: {[39m
+[31m              isRead: true[39m
+[31m            }[39m
+[31m          })[39m
+
+[31mArgument `id` is missing.[39m
+2026-02-01 15:53:52:5352 [31merror[39m: [31mPrismaClientValidationError: [39m
+[31mInvalid `prisma.notification.updateMany()` invocation in[39m
+[31mE:\Naimur Sharon\WHMCS\backend\src\services\notificationService.ts:104:38[39m
+
+[31m  101 };[39m
+[31m  102 [39m
+[31m  103 export const markAsRead = async (id: number, userId: number) => {[39m
+[31m→ 104     return await prisma.notification.updateMany({[39m
+[31m            where: {[39m
+[31m              userId: 1,[39m
+[31m          +   id: {[39m
+[31m          +     equals: Int | IntFieldRefInput,[39m
+[31m          +     in: Int[] | ListIntFieldRefInput,[39m
+[31m          +     notIn: Int[] | ListIntFieldRefInput,[39m
+[31m          +     lt: Int | IntFieldRefInput,[39m
+[31m          +     lte: Int | IntFieldRefInput,[39m
+[31m          +     gt: Int | IntFieldRefInput,[39m
+[31m          +     gte: Int | IntFieldRefInput,[39m
+[31m          +     not: Int | NestedIntFilter[39m
+[31m          +   }[39m
+[31m            },[39m
+[31m            data: {[39m
+[31m              isRead: true[39m
+[31m            }[39m
+[31m          })[39m
+
+[31mArgument `id` is missing.[39m
+[31m    at throwValidationException (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\core\errorRendering\throwValidationException.ts:46:9)[39m
+[31m    at Vr.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:202:7)[39m
+[31m    at Vr.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)[39m
+[31m    at Vr.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)[39m
+[31m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+[31m    at async a (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24)[39m
+[31m    at async Object.markAsRead (E:\Naimur Sharon\WHMCS\backend\src\services\notificationService.ts:104:12)[39m
+[31m    at async markRead (E:\Naimur Sharon\WHMCS\backend\src\controllers\notification.controller.ts:58:5)[39m

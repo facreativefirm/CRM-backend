@@ -7,29 +7,42 @@ import { InvoiceStatus, Prisma } from '@prisma/client';
 import logger from '../utils/logger';
 
 /**
- * Extract client IP address from request
- * Checks various headers in order of preference
+ * Extract client IP address from request - Enhanced for Production
  */
 function getClientIp(req: Request): string {
     const headers = [
+        req.headers['cf-connecting-ip'], // Cloudflare
         req.headers['x-forwarded-for'],
         req.headers['x-real-ip'],
-        req.headers['cf-connecting-ip'], // Cloudflare
+        req.headers['true-client-ip'],
         req.socket.remoteAddress
     ];
 
     for (const header of headers) {
         if (header) {
-            // x-forwarded-for can contain multiple IPs, take the first one
-            const ip = Array.isArray(header) ? header[0] : header.toString().split(',')[0].trim();
-            if (ip && ip !== '::1' && ip !== '127.0.0.1') {
+            let ip = Array.isArray(header) ? header[0] : header.toString().split(',')[0].trim();
+
+            // Handle IPv6-mapped IPv4 (e.g., ::ffff:192.168.1.1)
+            if (ip.startsWith('::ffff:')) {
+                ip = ip.substring(7);
+            }
+
+            // Strip port if present (mostly for remoteAddress)
+            if (ip.includes(':') && !ip.includes('[')) { // Not a standard IPv6
+                const parts = ip.split(':');
+                if (parts.length === 2) ip = parts[0];
+            }
+
+            // Simple IPv4 regex check
+            const ipv4Regex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+            if (ipv4Regex.test(ip) && ip !== '127.0.0.1') {
                 return ip;
             }
         }
     }
 
-    // Fallback to a valid IP (for local development)
-    return '103.100.100.100';
+    // Fallback to a valid BD IP (Nagad prefers BD IPs)
+    return '103.147.128.1';
 }
 
 export class NagadController {

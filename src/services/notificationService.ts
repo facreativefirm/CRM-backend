@@ -36,7 +36,7 @@ export const broadcastToAdmins = async (
     message: string,
     link?: string
 ) => {
-    // Find all admins
+    // 1. Find all admins and staff
     const admins = await prisma.user.findMany({
         where: {
             userType: {
@@ -46,30 +46,27 @@ export const broadcastToAdmins = async (
         select: { id: true }
     });
 
-    const notifications = admins.map(admin => ({
-        userId: admin.id,
-        type,
-        title,
-        message,
-        link,
-        isRead: false
-    }));
+    if (admins.length === 0) return;
 
-    if (notifications.length > 0) {
-        const result = await prisma.notification.createMany({
-            data: notifications
-        });
-
-        // Real-time: Notify all admins
-        notifyAdmins('new_notification', {
-            type,
-            title,
-            message,
-            link
-        });
-
-        return result;
+    // 2. We use a loop to ensure each admin gets a specific notification record with its own ID
+    // This allows them to mark as read immediately from the UI without refreshing
+    const results = [];
+    for (const admin of admins) {
+        try {
+            const notification = await createNotification(
+                admin.id,
+                type,
+                title,
+                message,
+                link
+            );
+            results.push(notification);
+        } catch (err) {
+            console.error(`Failed to create broadcast notification for admin ${admin.id}:`, err);
+        }
     }
+
+    return results;
 };
 
 export const getUnreadNotifications = async (userId: number) => {

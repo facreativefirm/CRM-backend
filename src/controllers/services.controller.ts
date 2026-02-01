@@ -55,7 +55,7 @@ export const createService = async (req: AuthRequest, res: Response) => {
     // Data is pre-validated and transformed by createServiceSchema
     const {
         clientId, productId, serverId, billingCycle, domain,
-        amount, nextDueDate, username, password, ipAddress
+        amount, nextDueDate, username, password, ipAddress, controlPanelUrl
     } = req.body;
 
     // 1. Fetch Product details to get price/name if not provided
@@ -77,7 +77,8 @@ export const createService = async (req: AuthRequest, res: Response) => {
             nextDueDate: nextDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             username,
             passwordHash: password,
-            ipAddress
+            ipAddress,
+            controlPanelUrl
         }
     });
 
@@ -289,15 +290,97 @@ export const performAction = async (req: AuthRequest, res: Response) => {
 export const requestCancellation = async (req: AuthRequest, res: Response) => {
     const { serviceId, reason, type } = req.body;
 
+    console.log(`[Cancellation] REQUEST INITIATED: ServiceId=${serviceId}, User=${req.user?.email} (${req.user?.id})`);
+
+    // 1. Fetch details for notification
+    const service = await prisma.service.findUnique({
+        where: { id: serviceId },
+        include: {
+            client: { include: { user: true } },
+            product: true
+        }
+    });
+
+    if (!service) throw new AppError('Service not found', 404);
+
+    const client = await prisma.client.findFirst({ where: { userId: req.user?.id } });
+    if (!client) throw new AppError('Client record not found', 404);
+
+    // 2. Create the cancellation request record
     const request = await prisma.cancellationRequest.create({
         data: {
-            clientId: (await prisma.client.findFirst({ where: { userId: req.user?.id } }))?.id || 0,
+            clientId: client.id,
             serviceId,
             reason,
             type,
             status: 'PENDING',
         }
     });
+
+    // 3. Notify Admins
+    try {
+        const admins = await prisma.user.findMany({
+            where: {
+                userType: { in: [UserType.ADMIN, UserType.SUPER_ADMIN] },
+                status: 'ACTIVE'
+            },
+            select: { id: true, email: true, username: true }
+        });
+
+        console.log(`[Cancellation] Found ${admins.length} active admins:`, admins.map(a => a.email).join(', '));
+
+        const serviceName = service.product.name;
+        const clientName = `${service.client.user.firstName} ${service.client.user.lastName}`;
+        const isImmediate = type === 'IMMEDIATE';
+
+        const { subject, body } = EmailTemplates.serviceCancellationRequest(
+            serviceName,
+            clientName,
+            type,
+            reason
+        );
+
+        // A. Real-time Broadcast to all Admins (In-app + Socket)
+        notificationService.broadcastToAdmins(
+            isImmediate ? 'ERROR' : 'WARNING',
+            `Cancellation Request: ${serviceName}`,
+            `${clientName} has requested ${type} cancellation for their ${serviceName} service.`,
+            `/admin/services/${serviceId}`
+        ).catch(e => console.error("Admin cancellation broadcast failed", e));
+
+        // B. Email notifications to each admin
+        const emailPromises = admins
+            .filter(admin => !!admin.email)
+            .map(admin =>
+                sendEmail(admin.email!, subject, body)
+                    .then(() => console.log(`[Cancellation] Email sent to admin: ${admin.username} (${admin.email})`))
+                    .catch(e => console.error(`[Cancellation] Failed to email admin ${admin.username}:`, e))
+            );
+
+        if (emailPromises.length > 0) {
+            await Promise.all(emailPromises);
+        } else {
+            console.warn(`[Cancellation] No active admins/super-admins with email addresses found.`);
+        }
+
+
+        // D. Fallback: Notify the support email if it exists
+        const systemSettings = await prisma.systemSetting.findMany({
+            where: { settingKey: 'supportEmail' }
+        });
+        const supportEmail = systemSettings.find(s => s.settingKey === 'supportEmail')?.settingValue;
+
+        if (supportEmail) {
+            try {
+                await sendEmail(supportEmail, subject, body);
+                console.log(`[Cancellation] Notification sent to general support email: ${supportEmail}`);
+            } catch (err) {
+                console.error("[Cancellation] Failed to send notification to support email", err);
+            }
+        }
+    } catch (err) {
+        console.error("[Cancellation] Notification logic failed", err);
+    }
 
     res.status(201).json({
         status: 'success',

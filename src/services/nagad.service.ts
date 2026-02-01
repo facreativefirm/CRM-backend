@@ -170,7 +170,11 @@ export class NagadService {
                 throw new Error('Invalid response from initialization step');
             }
 
-            const merchantCallbackURL = `${process.env.FRONTEND_URL}/payment/nagad-callback`;
+            let frontendUrl = process.env.FRONTEND_URL || '';
+            // Ensure frontendUrl doesn't end with a slash for consistency
+            frontendUrl = frontendUrl.replace(/\/$/, '');
+
+            const merchantCallbackURL = `${frontendUrl}/payment/nagad-callback`;
 
             // Prepare sensitive data for Step 2 (using challenge from Step 1)
             const orderSensitiveData = {
@@ -211,8 +215,19 @@ export class NagadService {
             };
         } catch (error: any) {
             const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-            logger.error(`Nagad completion failed: ${errorData}`);
-            throw new Error(error.response?.data?.message || 'Nagad completion failed');
+            const errorStatus = error.response?.status;
+            logger.error(`Nagad completion failed [Status: ${errorStatus}]: ${errorData}`);
+
+            // Log full request for debugging (STRICTLY FOR LOGS, NOT EXPOSED TO FRONTEND)
+            if (error.config) {
+                logger.debug(`Nagad failed request config: ${JSON.stringify({
+                    url: error.config.url,
+                    method: error.config.method,
+                    headers: error.config.headers
+                })}`);
+            }
+
+            throw new Error(error.response?.data?.message || `Nagad completion failed: ${errorData}`);
         }
     }
 

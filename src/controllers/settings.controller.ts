@@ -39,7 +39,8 @@ export const getPublicSettings = async (req: Request, res: Response) => {
             'defaultCurrency',
             'phoneNumber',
             'taxRate',
-            'taxName'
+            'taxName',
+            'companyAddress'
         ];
 
         const settingsObj = settings.reduce((acc: any, curr) => {

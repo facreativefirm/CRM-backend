@@ -309,6 +309,7 @@ export const createServiceSchema = z.object({
         username: z.string().optional(),
         password: z.string().optional(),
         ipAddress: z.string().optional(),
+        controlPanelUrl: z.string().optional(),
     }),
 });
 
@@ -328,6 +329,7 @@ export const serviceUpdateSchema = z.object({
         amount: z.number().optional(),
         billingCycle: z.string().optional(),
         serverId: z.number().optional().nullable(),
+        controlPanelUrl: z.string().optional(),
     }),
 });
 
@@ -439,6 +441,7 @@ export const registerDomainSchema = z.object({
         emailForwarding: z.boolean().optional(),
         idProtection: z.boolean().optional(),
         status: z.any().optional(),
+        eppCode: z.string().optional(),
     }),
 });
 
@@ -456,6 +459,7 @@ export const updateDomainSchema = z.object({
         emailForwarding: z.boolean().optional(),
         idProtection: z.boolean().optional(),
         registrar: z.string().optional(),
+        eppCode: z.string().optional(),
     }),
 });
 

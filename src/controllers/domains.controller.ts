@@ -73,6 +73,7 @@ export const registerDomain = async (req: AuthRequest, res: Response) => {
             dnsManagement,
             emailForwarding,
             idProtection,
+            eppCode,
         } = req.body;
 
         const period = Number(regPeriod) || 1;
@@ -92,6 +93,7 @@ export const registerDomain = async (req: AuthRequest, res: Response) => {
                 dnsManagement: dnsManagement ?? false,
                 emailForwarding: emailForwarding ?? false,
                 idProtection: idProtection ?? false,
+                eppCode: eppCode || null,
                 registrationDate: new Date(),
             }
         });
@@ -229,10 +231,21 @@ export const requestDomainRenewal = async (req: AuthRequest, res: Response) => {
 export const updateDomain = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const updateData = { ...req.body };
+        const {
+            clientId,
+            expiryDate,
+            registrationDate,
+            id: _id,
+            client: _client,
+            ...otherData
+        } = req.body;
 
-        // Remove fields that should not be updated directly via this endpoint if necessary
-        delete updateData.regPeriod;
+        const updateData: any = {
+            ...otherData,
+            ...(clientId && { clientId: parseInt(clientId as string) }),
+            ...(expiryDate && { expiryDate: new Date(expiryDate) }),
+            ...(registrationDate && { registrationDate: new Date(registrationDate) }),
+        };
 
         const domain = await prisma.domain.findUnique({ where: { id: parseInt(id as string) } });
         if (!domain) throw new AppError('Domain not found', 404);
