@@ -58,6 +58,19 @@ export class NagadService {
                 ? 'https://api.mynagad.com/api/dfs/'
                 : 'https://sandbox-ssl.mynagad.com/api/dfs/';
 
+            // Log credential sources (without exposing actual keys)
+            logger.info(`Nagad credentials loaded from: ${settingsMap.nagadMerchantId ? 'Database' : 'Environment'}`);
+            logger.debug(`Nagad Merchant ID present: ${!!merchantId} (length: ${merchantId?.length || 0})`);
+            logger.debug(`Nagad Public Key present: ${!!publicKey} (length: ${publicKey?.length || 0})`);
+            logger.debug(`Nagad Private Key present: ${!!privateKey} (length: ${privateKey?.length || 0})`);
+            logger.debug(`Nagad Run Mode: ${runMode}`);
+            logger.debug(`Nagad Base URL: ${baseUrl}`);
+
+            if (!merchantId || !publicKey || !privateKey) {
+                logger.error('Nagad credentials are incomplete!');
+                throw new Error('Nagad credentials not properly configured');
+            }
+
             return { merchantId, publicKey, privateKey, baseUrl };
         } catch (error) {
             logger.error('Failed to fetch Nagad credentials from DB, falling back to ENV', error);
@@ -76,16 +89,19 @@ export class NagadService {
      * Based on official Nagad plugin implementation
      */
     async initializePayment(data: NagadPaymentRequest): Promise<NagadInitResponse> {
-        const { merchantId, publicKey, privateKey, baseUrl } = await this.getCredentials();
+        let { merchantId, publicKey, privateKey, baseUrl } = await this.getCredentials();
 
-        // Generate order ID within Nagad's 20-character limit
-        // Format: INV{invoiceId}{4digits} (e.g., INV1234567) - Strictly alphanumeric
-        // This ensures we stay under 20 chars even for large invoice IDs
-        const orderIdWithSuffix = `INV${data.invoiceId}${cryptoService.generateOrderSuffix()}`;
+        // STRICT SANITIZATION: Remove any special characters or spaces from Merchant ID
+        merchantId = merchantId.replace(/[^a-zA-Z0-9]/g, '');
+
+        // Generate and sanitize Order ID (Must be alphanumeric only for Nagad)
+        // Ensure invoiceId doesn't have # or other non-alphanumeric chars
+        const safeInvoiceId = data.invoiceId.toString().replace(/[^a-zA-Z0-9]/g, '');
+        const orderIdWithSuffix = `INV${safeInvoiceId}${cryptoService.generateOrderSuffix()}`;
 
         if (orderIdWithSuffix.length > 20) {
-            // If still too long, use just invoice ID + suffix
-            const shortOrderId = `${data.invoiceId}${cryptoService.generateOrderSuffix()}`;
+            // If still too long, use just safe invoice ID + suffix
+            const shortOrderId = `${safeInvoiceId}${cryptoService.generateOrderSuffix()}`.substring(0, 20);
             logger.warn(`Order ID too long, using short format: ${shortOrderId}`);
             return this.initializePaymentWithOrderId(data, shortOrderId, merchantId, publicKey, privateKey, baseUrl);
         }
@@ -122,10 +138,25 @@ export class NagadService {
         };
 
         try {
+            const requestUrl = `${baseUrl}check-out/initialize/${merchantId}/${orderIdWithSuffix}?locale=EN`;
+
             logger.info(`Initializing Nagad payment for Order: ${orderIdWithSuffix}`);
+            logger.debug(`Nagad Request URL: ${requestUrl}`);
+            logger.debug(`Nagad Merchant ID: ${merchantId}`);
+            logger.debug(`Nagad Base URL: ${baseUrl}`);
+            logger.debug(`Nagad Request Headers: ${JSON.stringify(this.getHeaders(data.clientIp))}`);
+            logger.debug(`Nagad Timestamp: ${timestamp}`);
+            logger.debug(`Nagad Order ID Length: ${orderIdWithSuffix.length} chars`);
+
+            // Log payload structure (not actual encrypted data for security)
+            logger.debug(`Nagad Payload Structure: {
+                dateTime: "${timestamp}",
+                sensitiveData: "[${postData.sensitiveData.length} chars encrypted]",
+                signature: "[${postData.signature.length} chars]"
+            }`);
 
             const response = await axios.post(
-                `${baseUrl}check-out/initialize/${merchantId}/${orderIdWithSuffix}?locale=EN`,
+                requestUrl,
                 postData,
                 {
                     headers: this.getHeaders(data.clientIp),

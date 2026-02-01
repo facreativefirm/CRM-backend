@@ -31,9 +31,14 @@ export class CryptoService {
             .replace(/["']/g, '') // Remove any quotes
             .replace(/\s/g, '');
 
-        // Use the generic PRIVATE KEY header (PKCS#8) which is preferred by OpenSSL 3.1+
-        // and handles both PKCS#1 and PKCS#8 raw data correctly in Node.js
-        return `-----BEGIN PRIVATE KEY-----\n${cleanKey}\n-----END PRIVATE KEY-----`;
+        // Use the generic PRIVATE KEY header (PKCS#8)
+        const formatted = `-----BEGIN PRIVATE KEY-----\n${cleanKey}\n-----END PRIVATE KEY-----`;
+
+        // Securely log format info
+        logger.debug(`Private Key formatted. Original length: ${key.length}, Cleaned length: ${cleanKey.length}`);
+        logger.debug(`Private Key structure check: Starts with ${formatted.substring(0, 30)}... Ends with ...${formatted.substring(formatted.length - 30)}`);
+
+        return formatted;
     }
 
     /**
@@ -49,7 +54,13 @@ export class CryptoService {
             .replace(/["']/g, '') // Remove any quotes
             .replace(/\s/g, '');
 
-        return `-----BEGIN PUBLIC KEY-----\n${cleanKey}\n-----END PUBLIC KEY-----`;
+        const formatted = `-----BEGIN PUBLIC KEY-----\n${cleanKey}\n-----END PUBLIC KEY-----`;
+
+        // Securely log format info
+        logger.debug(`Public Key formatted. Original length: ${key.length}, Cleaned length: ${cleanKey.length}`);
+        logger.debug(`Public Key structure check: Starts with ${formatted.substring(0, 30)}... Ends with ...${formatted.substring(formatted.length - 30)}`);
+
+        return formatted;
     }
 
     /**
