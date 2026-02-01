@@ -170,11 +170,17 @@ export class NagadService {
                 throw new Error('Invalid response from initialization step');
             }
 
+            // Get frontend URL and ensure it's a valid string
             let frontendUrl = process.env.FRONTEND_URL || '';
-            // Ensure frontendUrl doesn't end with a slash for consistency
-            frontendUrl = frontendUrl.replace(/\/$/, '');
 
-            const merchantCallbackURL = `${frontendUrl}/payment/nagad-callback`;
+            // Only remove trailing slash if frontendUrl is not empty
+            if (frontendUrl && frontendUrl.length > 0) {
+                frontendUrl = frontendUrl.replace(/\/$/, '');
+            }
+
+            const merchantCallbackURL = frontendUrl
+                ? `${frontendUrl}/payment/nagad-callback`
+                : '/payment/nagad-callback'; // Fallback to relative URL
 
             // Prepare sensitive data for Step 2 (using challenge from Step 1)
             const orderSensitiveData = {

@@ -87,6 +87,10 @@ export class CryptoService {
             throw new Error('Merchant Private Key not configured');
         }
 
+        if (!encryptedData || typeof encryptedData !== 'string') {
+            throw new Error('Invalid encrypted data: must be a non-empty string');
+        }
+
         try {
             const cleanData = encryptedData.replace(/\s/g, '');
             const buffer = Buffer.from(cleanData, 'base64');
