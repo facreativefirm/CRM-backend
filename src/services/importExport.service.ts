@@ -15,13 +15,28 @@ export class ImportExportService {
     }
 
     private static parseCsvLine(line: string): string[] {
-        // Simple regex to parse CSV handling quotes
-        const pattern = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
-        // Fallback for simple split if no complex parsing needed (for now, simple split by comma)
-        // A robust regex is complex, we will use a simple split for this MVP plan
-        // and assume standard formatting.
-        // For production, a library like 'csv-parse' is recommended.
-        return line.split(',').map(s => s.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+        if (!line) return [];
+        // Detect delimiter (comma or semicolon)
+        const delimiter = line.includes(';') && (line.match(/;/g) || []).length > (line.match(/,/g) || []).length ? ';' : ',';
+
+        const result: string[] = [];
+        let cur = '';
+        let inQuote = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                inQuote = !inQuote;
+            } else if (char === delimiter && !inQuote) {
+                result.push(cur.trim());
+                cur = '';
+            } else {
+                cur += char;
+            }
+        }
+        result.push(cur.trim());
+
+        return result.map(s => s.replace(/^"|"$/g, '').replace(/""/g, '"'));
     }
 
     // --- EXPORT ---
@@ -109,33 +124,41 @@ export class ImportExportService {
     // --- IMPORT ---
 
     static async importClients(csvContent: string) {
-        const lines = csvContent.split('\n').filter(l => l.trim().length > 0);
+        // Remove BOM and clean line endings
+        const cleanContent = csvContent.replace(/^\uFEFF/, '').replace(/\r/g, '');
+        const lines = cleanContent.split('\n').filter(l => l.trim().length > 0);
+
         if (lines.length < 2) throw new AppError('Empty or invalid CSV file', 400);
 
         const [headerLine, ...dataLines] = lines;
-        const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\s/g, ''));
+
+        // Clean headers: lowercase, alphanumeric matching only
+        const headers = this.parseCsvLine(headerLine).map(h =>
+            h.toLowerCase().trim().replace(/[^a-z0-9]/g, '')
+        );
 
         const results = { success: 0, failed: 0, errors: [] as string[] };
 
-        // Identify column indices based on headers
+        // Identify column indices with fuzzy matching
         const emailIdx = headers.findIndex(h => h.includes('email'));
-        const firstIdx = headers.findIndex(h => h.includes('firstname') || h === 'name');
-        const lastIdx = headers.findIndex(h => h.includes('lastname'));
-        const companyIdx = headers.findIndex(h => h.includes('company'));
-        const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile'));
-        const addressIdx = headers.findIndex(h => h.includes('address'));
+        const firstIdx = headers.findIndex(h => h.includes('first') || h === 'name' || h === 'firstname');
+        const lastIdx = headers.findIndex(h => h.includes('last') || h === 'lastname');
+        const companyIdx = headers.findIndex(h => h.includes('comp'));
+        const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile') || h.includes('tel'));
+        const addressIdx = headers.findIndex(h => h.includes('addr'));
         const cityIdx = headers.findIndex(h => h.includes('city'));
         const countryIdx = headers.findIndex(h => h.includes('country'));
-        const passIdx = headers.findIndex(h => h.includes('password'));
+        const passIdx = headers.findIndex(h => h.includes('pass'));
 
         if (emailIdx === -1) {
-            throw new AppError('Could not find Email column in CSV. Please ensure your header contains "Email".', 400);
+            console.error('Parsed Headers:', headers);
+            throw new AppError(`Could not find Email column. Found headers: ${headers.join(', ')}`, 400);
         }
 
         for (const line of dataLines) {
             try {
                 const cols = this.parseCsvLine(line);
-                if (cols.length < 3) continue;
+                if (cols.length < 1) continue;
 
                 const email = cols[emailIdx];
                 const firstName = firstIdx !== -1 ? cols[firstIdx] : '';
@@ -148,8 +171,8 @@ export class ImportExportService {
                 const passwordRaw = passIdx !== -1 ? cols[passIdx] : '';
 
                 if (!email || !email.includes('@')) {
-                    if (email === 'Email') continue; // Skip header repetition if it exists
-                    throw new Error(`Invalid email: ${email}`);
+                    if (email?.toLowerCase().includes('email')) continue; // Skip header repetition
+                    continue;
                 }
 
                 const existingUser = await prisma.user.findFirst({ where: { email } });
