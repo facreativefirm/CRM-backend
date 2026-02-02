@@ -319,10 +319,14 @@ export class NagadService {
      * Based on official plugin
      */
     private getHeaders(clientIp: string) {
+        const frontendUrl = process.env.FRONTEND_URL || 'https://clientarea.facreative.biz';
+
         return {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Origin': frontendUrl,
+            'Referer': `${frontendUrl}/`,
             'X-KM-Api-Version': 'v-0.2.0',
             'X-KM-IP-V4': clientIp, // CRITICAL: Must be actual client IP
             'X-KM-Client-Type': 'PC_WEB'
