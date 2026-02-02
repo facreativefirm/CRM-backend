@@ -110,37 +110,45 @@ export class ImportExportService {
 
     static async importClients(csvContent: string) {
         const lines = csvContent.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length < 2) throw new AppError('Empty or invalid CSV file', 400);
+
         const [headerLine, ...dataLines] = lines;
-        // Expected Header: FirstName, LastName, Email, Company, Phone, Address, City, Country, Password(Optional)
+        const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\s/g, ''));
 
         const results = { success: 0, failed: 0, errors: [] as string[] };
 
+        // Identify column indices based on headers
+        const emailIdx = headers.findIndex(h => h.includes('email'));
+        const firstIdx = headers.findIndex(h => h.includes('firstname') || h === 'name');
+        const lastIdx = headers.findIndex(h => h.includes('lastname'));
+        const companyIdx = headers.findIndex(h => h.includes('company'));
+        const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile'));
+        const addressIdx = headers.findIndex(h => h.includes('address'));
+        const cityIdx = headers.findIndex(h => h.includes('city'));
+        const countryIdx = headers.findIndex(h => h.includes('country'));
+        const passIdx = headers.findIndex(h => h.includes('password'));
+
+        if (emailIdx === -1) {
+            throw new AppError('Could not find Email column in CSV. Please ensure your header contains "Email".', 400);
+        }
+
         for (const line of dataLines) {
             try {
-                const cols = line.split(','); // Simple split for now
+                const cols = this.parseCsvLine(line);
                 if (cols.length < 3) continue;
 
-                // Support both "ID,FirstName,LastName,Email..." and "FirstName,LastName,Email..." formats
-                // The provided example CSV has ID at index 0. We need to detect which column holds what.
-                // For this quick fix, we'll try to sniff the email.
-
-                // Let's assume standard order:
-                // 0: FirstName, 1: LastName, 2: Email...
-                // OR
-                // 0: ID, 1: FirstName, 2: LastName, 3: Email...
-
-                let firstName, lastName, email, companyName, phone, address1, city, country, passwordRaw;
-
-                // Simple heuristic: check if col 2 or col 3 looks like an email
-                if (cols[3] && cols[3].includes('@')) {
-                    // Likely ID is at 0
-                    [, firstName, lastName, email, companyName, phone, address1, city, country, , , passwordRaw] = cols.map(s => s.trim());
-                } else {
-                    // Likely standard format
-                    [firstName, lastName, email, companyName, phone, address1, city, country, passwordRaw] = cols.map(s => s.trim());
-                }
+                const email = cols[emailIdx];
+                const firstName = firstIdx !== -1 ? cols[firstIdx] : '';
+                const lastName = lastIdx !== -1 ? cols[lastIdx] : '';
+                const companyName = companyIdx !== -1 ? cols[companyIdx] : '';
+                const phone = phoneIdx !== -1 ? cols[phoneIdx] : '';
+                const address1 = addressIdx !== -1 ? cols[addressIdx] : '';
+                const city = cityIdx !== -1 ? cols[cityIdx] : '';
+                const country = countryIdx !== -1 ? cols[countryIdx] : '';
+                const passwordRaw = passIdx !== -1 ? cols[passIdx] : '';
 
                 if (!email || !email.includes('@')) {
+                    if (email === 'Email') continue; // Skip header repetition if it exists
                     throw new Error(`Invalid email: ${email}`);
                 }
 
@@ -200,9 +208,21 @@ export class ImportExportService {
     }
     static async importProducts(csvContent: string) {
         const lines = csvContent.split('\n').filter(l => l.trim().length > 0);
-        const [headerLine, ...dataLines] = lines;
+        if (lines.length < 2) throw new AppError('Empty or invalid CSV file', 400);
 
-        // Dynamic mapping based on user requirements
+        const [headerLine, ...dataLines] = lines;
+        const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\s/g, ''));
+
+        // Identify column indices
+        const nameIdx = headers.findIndex(h => h === 'name' || h.includes('productname') || h.includes('title'));
+        const typeIdx = headers.findIndex(h => h.includes('type') || h.includes('category'));
+        const monthlyIdx = headers.findIndex(h => h.includes('monthly') || h.includes('price'));
+        const annualIdx = headers.findIndex(h => h.includes('annual') || h.includes('yearly'));
+
+        if (nameIdx === -1) {
+            throw new AppError('Could not find Name column in CSV. Please ensure your header contains "Name".', 400);
+        }
+
         const serviceMapping: Record<string, string> = {
             "BDIX VPS (NVME)": "vps",
             "Cloud VPS": "vps",
@@ -240,23 +260,22 @@ export class ImportExportService {
 
         for (const line of dataLines) {
             try {
-                const cols = line.split(',');
-                if (cols.length < 2) continue;
+                const cols = this.parseCsvLine(line);
+                if (cols.length < 1) continue;
 
-                const [name, type, monthlyPrice, annualPrice] = cols.map(s => s.trim());
+                const name = cols[nameIdx];
+                const type = typeIdx !== -1 ? cols[typeIdx] : 'HOSTING';
+                const monthlyPrice = monthlyIdx !== -1 ? cols[monthlyIdx] : '0';
+                const annualPrice = annualIdx !== -1 ? cols[annualIdx] : '0';
 
-                if (!name) throw new Error("Product Name is required");
+                if (!name || name === 'Name') continue;
 
-                // Determine Service Slug from mapping or fallback
                 let serviceSlug = serviceMapping[name] || 'other';
-
-                // Ensure service exists and get its ID
                 let serviceId = serviceCache.get(serviceSlug);
 
                 if (!serviceId) {
                     let service = await prisma.productService.findUnique({ where: { slug: serviceSlug } });
                     if (!service) {
-                        // Create default service group if it doesn't exist
                         service = await prisma.productService.create({
                             data: {
                                 name: serviceSlug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
@@ -268,11 +287,12 @@ export class ImportExportService {
                     serviceCache.set(serviceSlug, serviceId);
                 }
 
-                // Check duplicates (by slug or name)
                 const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
                 const existing = await prisma.product.findFirst({ where: { slug } });
-                if (existing) throw new Error(`Product ${name} already exists`);
+                if (existing) {
+                    results.success++; // Skip but count as success or just ignore
+                    continue;
+                }
 
                 await prisma.product.create({
                     data: {
@@ -280,8 +300,8 @@ export class ImportExportService {
                         slug,
                         productType: (type ? type.toUpperCase() : 'HOSTING') as any,
                         pricingModel: 'RECURRING',
-                        monthlyPrice: parseFloat(monthlyPrice) || 0,
-                        annualPrice: parseFloat(annualPrice) || 0,
+                        monthlyPrice: parseFloat(monthlyPrice.replace(/[^0-9.]/g, '')) || 0,
+                        annualPrice: parseFloat(annualPrice.replace(/[^0-9.]/g, '')) || 0,
                         serviceId: serviceId,
                         status: 'ACTIVE'
                     }
@@ -298,30 +318,36 @@ export class ImportExportService {
 
     static async importProductServices(csvContent: string) {
         const lines = csvContent.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length < 2) throw new AppError('Empty or invalid CSV file', 400);
+
         const [headerLine, ...dataLines] = lines;
-        // Expected Header: Name, Slug, Description, ParentServiceSlug, DisplayOrder, IconClass
+        const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\s/g, ''));
+
+        const nameIdx = headers.findIndex(h => h === 'name' || h.includes('servicename'));
+        const slugIdx = headers.findIndex(h => h === 'slug');
+        const descIdx = headers.findIndex(h => h.includes('desc'));
+        const parentIdx = headers.findIndex(h => h.includes('parent'));
+        const orderIdx = headers.findIndex(h => h.includes('order'));
+        const iconIdx = headers.findIndex(h => h.includes('icon'));
 
         const results = { success: 0, failed: 0, errors: [] as string[] };
 
         for (const line of dataLines) {
             try {
-                const cols = line.split(',');
+                const cols = this.parseCsvLine(line);
                 if (cols.length < 1) continue;
 
-                // Heuristic for ID column
-                let name, slug, description, parentServiceSlug, displayOrder, iconClass;
-                if (cols[2] && cols[2].includes('-')) { // likely has a slug in index 2
-                    [, name, slug, description, parentServiceSlug, displayOrder, iconClass] = cols.map(s => s.trim());
-                } else {
-                    [name, slug, description, parentServiceSlug, displayOrder, iconClass] = cols.map(s => s.trim());
-                }
+                const name = nameIdx !== -1 ? cols[nameIdx] : '';
+                if (!name || name === 'Name') continue;
 
-                if (!name) throw new Error("Service Name is required");
+                const slug = slugIdx !== -1 ? cols[slugIdx] : name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                const description = descIdx !== -1 ? cols[descIdx] : '';
+                const parentServiceSlug = parentIdx !== -1 ? cols[parentIdx] : '';
+                const displayOrder = orderIdx !== -1 ? cols[orderIdx] : '0';
+                const iconClass = iconIdx !== -1 ? cols[iconIdx] : '';
 
-                const finalSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-                const existing = await prisma.productService.findFirst({ where: { slug: finalSlug } });
-                if (existing) throw new Error(`Service with slug ${finalSlug} already exists`);
+                const existing = await prisma.productService.findFirst({ where: { slug } });
+                if (existing) continue;
 
                 let parentId = null;
                 if (parentServiceSlug) {
@@ -332,7 +358,7 @@ export class ImportExportService {
                 await prisma.productService.create({
                     data: {
                         name,
-                        slug: finalSlug,
+                        slug,
                         description,
                         parentServiceId: parentId,
                         displayOrder: parseInt(displayOrder) || 0,
