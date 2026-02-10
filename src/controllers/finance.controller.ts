@@ -9,6 +9,8 @@ import * as notificationService from '../services/notificationService';
 import * as orderService from '../services/orderService';
 import * as invoiceService from '../services/invoiceService';
 import { InvestorService } from '../services/investor.service';
+import { generateMoneyReceiptPDF } from '../services/pdfService';
+import * as settingsService from '../services/settingsService';
 
 /**
  * Currency Management
@@ -134,6 +136,47 @@ export const getTransactions = async (req: Request, res: Response) => {
 };
 
 /**
+ * Get Single Transaction
+ */
+export const getTransaction = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = req.user!;
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: parseInt(id as string) },
+            include: {
+                invoice: {
+                    include: {
+                        client: {
+                            include: { user: true }
+                        },
+                        items: true
+                    }
+                },
+                refunds: true
+            }
+        });
+
+        if (!transaction) throw new AppError('Transaction not found', 404);
+
+        // Authorization
+        if (user.userType === UserType.CLIENT) {
+            if (transaction.invoice?.client.user.id !== user.id) {
+                throw new AppError('Access denied', 403);
+            }
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: { transaction }
+        });
+    } catch (error: any) {
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
  * Verify Transaction (Approve/Reject)
  */
 export const verifyTransaction = async (req: AuthRequest, res: Response) => {
@@ -213,8 +256,28 @@ export const verifyTransaction = async (req: AuthRequest, res: Response) => {
 
         // Notifications (Client)
         try {
-            const emailData = emailService.EmailTemplates.invoicePaid(invoiceNumber);
-            await emailService.sendEmail(clientEmail, emailData.subject, emailData.body);
+            const appName = await settingsService.getSetting('appName', 'FA CRM');
+            const taxName = await settingsService.getSetting('taxName', 'Tax');
+            const currencySymbol = await settingsService.getCurrencySymbol();
+
+            // Refresh invoice data to get items for the receipt
+            const fullInvoice = await prisma.invoice.findUnique({
+                where: { id: invoice.id },
+                include: { items: true, client: { include: { user: true } } }
+            });
+
+            const pdfBuffer = await generateMoneyReceiptPDF(
+                transaction,
+                fullInvoice,
+                appName,
+                taxName,
+                currencySymbol
+            );
+
+            const emailData = emailService.EmailTemplates.invoicePaid(invoiceNumber, newStatus);
+            await emailService.sendEmail(clientEmail, emailData.subject, emailData.body, [
+                { filename: `Receipt-${invoiceNumber}-TXN${transaction.id}.pdf`, content: pdfBuffer }
+            ]);
         } catch (clientEmailErr) {
             console.error(`Failed to send payment confirmation to client ${clientEmail}:`, clientEmailErr);
         }
@@ -543,3 +606,136 @@ async function processRefundCompletion(refundId: number) {
         console.error("Failed to send refund notification:", error);
     }
 }
+
+/**
+ * Download Money Receipt PDF for a Transaction
+ */
+export const downloadMoneyReceipt = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = req.user!;
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: parseInt(id as string) },
+            include: {
+                invoice: {
+                    include: {
+                        client: {
+                            include: { user: true }
+                        },
+                        items: true
+                    }
+                }
+            }
+        });
+
+        if (!transaction) throw new AppError('Transaction not found', 404);
+        if (!transaction.invoice) throw new AppError('Invoice not found for this transaction', 404);
+
+        // Authorization: Only allow client to download their own receipts, or admins
+        const isAdmin = [UserType.ADMIN, UserType.SUPER_ADMIN, 'STAFF'].includes(user.userType as any);
+        const isOwner = transaction.invoice.client.user.id === user.id;
+
+        if (!isAdmin && !isOwner) {
+            throw new AppError('You do not have permission to access this receipt', 403);
+        }
+
+        // Only generate receipts for successful transactions
+        if (transaction.status !== 'SUCCESS') {
+            throw new AppError('Money receipts can only be generated for successful transactions', 400);
+        }
+
+        const appName = await settingsService.getSetting('appName', 'FA CRM');
+        const taxName = await settingsService.getSetting('taxName', 'Tax');
+        const currencySymbol = await settingsService.getCurrencySymbol();
+
+        const pdfBuffer = await generateMoneyReceiptPDF(
+            transaction,
+            transaction.invoice,
+            appName,
+            taxName,
+            currencySymbol
+        );
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Receipt-${transaction.invoice.invoiceNumber}-TXN${transaction.id}.pdf"`);
+        res.send(pdfBuffer);
+    } catch (error: any) {
+        console.error('[DownloadMoneyReceipt Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
+ * Send Money Receipt Email for a Transaction
+ */
+export const sendMoneyReceiptEmail = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = req.user!;
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: parseInt(id as string) },
+            include: {
+                invoice: {
+                    include: {
+                        client: {
+                            include: { user: true }
+                        },
+                        items: true
+                    }
+                }
+            }
+        });
+
+        if (!transaction) throw new AppError('Transaction not found', 404);
+        if (!transaction.invoice) throw new AppError('Invoice not found for this transaction', 404);
+
+        // Authorization
+        const isAdmin = [UserType.ADMIN, UserType.SUPER_ADMIN, 'STAFF'].includes(user.userType as any);
+        const isOwner = transaction.invoice.client.user.id === user.id;
+
+        if (!isAdmin && !isOwner) {
+            throw new AppError('You do not have permission to send this receipt', 403);
+        }
+
+        if (transaction.status !== 'SUCCESS') {
+            throw new AppError('Money receipts can only be sent for successful transactions', 400);
+        }
+
+        const appName = await settingsService.getSetting('appName', 'FA CRM');
+        const taxName = await settingsService.getSetting('taxName', 'Tax');
+        const currencySymbol = await settingsService.getCurrencySymbol();
+
+        const pdfBuffer = await generateMoneyReceiptPDF(
+            transaction,
+            transaction.invoice,
+            appName,
+            taxName,
+            currencySymbol
+        );
+
+        const { subject, body } = emailService.EmailTemplates.invoicePaid(
+            transaction.invoice.invoiceNumber,
+            transaction.invoice.status
+        );
+
+        await emailService.sendEmail(
+            transaction.invoice.client.user.email,
+            subject,
+            body,
+            [{
+                filename: `Receipt-${transaction.invoice.invoiceNumber}-TXN${transaction.id}.pdf`,
+                content: pdfBuffer
+            }]
+        );
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Money receipt sent successfully'
+        });
+    } catch (error: any) {
+        console.error('[SendMoneyReceipt Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};

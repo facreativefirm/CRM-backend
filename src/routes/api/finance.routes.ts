@@ -8,18 +8,19 @@ import { UserType } from '@prisma/client';
 const router = Router();
 
 router.use(protect);
-router.use(restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF));
+router.get('/currencies', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), financeController.getCurrencies);
+router.post('/currencies', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), validate(currencySchema), financeController.createCurrency);
 
-router.get('/currencies', financeController.getCurrencies);
-router.post('/currencies', validate(currencySchema), financeController.createCurrency);
+router.get('/tax-rates', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), financeController.getTaxRates);
+router.post('/tax-rates', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), validate(taxRateSchema), financeController.createTaxRate);
 
-router.get('/tax-rates', financeController.getTaxRates);
-router.post('/tax-rates', validate(taxRateSchema), financeController.createTaxRate);
-
-router.post('/attempt-cc-capture', financeController.attemptCCCapture);
+router.post('/attempt-cc-capture', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), financeController.attemptCCCapture);
 
 router.get('/transactions', financeController.getTransactions);
-router.post('/transactions/:id/verify', financeController.verifyTransaction);
+router.get('/transactions/:id', financeController.getTransaction);
+router.post('/transactions/:id/verify', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), financeController.verifyTransaction);
+router.get('/transactions/:id/receipt/download', financeController.downloadMoneyReceipt);
+router.post('/transactions/:id/receipt/send', financeController.sendMoneyReceiptEmail);
 
 // Refunds
 router.get('/refunds', financeController.getRefunds);

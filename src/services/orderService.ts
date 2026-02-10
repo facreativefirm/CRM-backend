@@ -12,6 +12,8 @@ import { MarketingService } from './marketingService';
 import { ResellerService } from './resellerService';
 import { WebhookService } from './webhook.service';
 
+import * as settingsService from './settingsService';
+
 const formatPrice = (amount: any) => `${parseFloat(amount).toFixed(2)}`;
 
 export interface OrderItemInput {
@@ -280,9 +282,32 @@ export const createOrder = async (input: CreateOrderInput) => {
             }
         }
 
-        // Send Order Confirmation
-        const { subject, body } = EmailTemplates.orderConfirmation(order.orderNumber, order.totalAmount.toString());
-        sendEmail(client.user.email, subject, body).catch(e => console.error("Email notification failed:", e));
+        // Create Invoice FIRST to attach to confirmation email
+        let invoiceData = null;
+        if (order.status === OrderStatus.PENDING) {
+            invoiceData = await invoiceService.createInvoiceFromOrder(order.id, undefined, { sendEmail: false });
+        }
+
+        // Send Order Confirmation with Invoice Attachment
+        try {
+            const { subject, body } = EmailTemplates.orderConfirmation(order.orderNumber, order.totalAmount.toString());
+
+            let attachments = [];
+            if (invoiceData) {
+                const appName = await settingsService.getSetting('appName', 'FA CRM');
+                const taxName = await settingsService.getSetting('taxName', 'Tax');
+                const currencySymbol = await settingsService.getCurrencySymbol();
+                const pdfBuffer = await generateInvoicePDF(invoiceData.fullInvoice, appName, taxName, currencySymbol);
+                attachments.push({
+                    filename: `Invoice-${invoiceData.invoice.invoiceNumber}.pdf`,
+                    content: pdfBuffer
+                });
+            }
+
+            await sendEmail(client.user.email, subject, body, attachments);
+        } catch (confirmEmailError) {
+            console.error("Order confirmation email failed:", confirmEmailError);
+        }
 
         // Notify Admins
         try {
@@ -307,11 +332,6 @@ export const createOrder = async (input: CreateOrderInput) => {
             }
         } catch (adminEmailError) {
             console.error('Failed to send admin order notification:', adminEmailError);
-        }
-
-        // Create Invoice
-        if (order.status === OrderStatus.PENDING) {
-            await invoiceService.createInvoiceFromOrder(order.id);
         }
 
         // Broadcast to admins

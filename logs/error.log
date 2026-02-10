@@ -3114,3 +3114,33 @@
 2026-02-09 15:40:19:4019 error: bKash Token Generation Failed. Metadata: {"data":{"status":"fail","msg":"Unknown error"},"status":200,"headers":{"date":"Mon, 09 Feb 2026 09:40:20 GMT","content-type":"application/json","content-length":"42","x-amzn-requestid":"96e4a908-9e6c-41fb-a2be-3b25364dbd39","x-amz-apigw-id":"Yge8rF-CyQ0EQqQ=","x-amzn-trace-id":"Root=1-6989ab83-59551d6d3de7f2fb417ed8aa","x-envoy-upstream-service-time":"82","x-volterra-location":"sg3-sin","server":"volt-adc"}}
 2026-02-09 15:40:19:4019 error: bKash Token Auth Exception: {"originalMessage":"Failed to generate bKash token"}
 2026-02-09 15:40:19:4019 error: bKash payment initiation error: Failed to generate bKash token {"stack":"Error: Failed to generate bKash token\n    at BkashService.getToken (E:\\Naimur Sharon\\WHMCS\\backend\\src\\services\\bkash.service.ts:143:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async BkashService.createPayment (E:\\Naimur Sharon\\WHMCS\\backend\\src\\services\\bkash.service.ts:149:23)\n    at async initiatePayment (E:\\Naimur Sharon\\WHMCS\\backend\\src\\controllers\\bkash.controller.ts:43:35)"}
+2026-02-10 15:36:52:3652 error: Unhandled Error: 
+Invalid `prisma.product.delete()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:409:32
+
+  406     throw new AppError(`Cannot delete product with ${serviceCount} active customer services. Deactivate or move services first.`, 400);
+  407 }
+  408 
+→ 409 await prisma.product.delete(
+Foreign key constraint violated on the constraint: `orderitem_productId_fkey`
+2026-02-10 15:36:52:3652 error: PrismaClientKnownRequestError: 
+Invalid `prisma.product.delete()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:409:32
+
+  406     throw new AppError(`Cannot delete product with ${serviceCount} active customer services. Deactivate or move services first.`, 400);
+  407 }
+  408 
+→ 409 await prisma.product.delete(
+Foreign key constraint violated on the constraint: `orderitem_productId_fkey`
+    at Vr.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24)
+    at async deleteProduct (E:\Naimur Sharon\WHMCS\backend\src\controllers\products.controller.ts:409:5)
+2026-02-10 15:45:04:454 error: bKash log not found for paymentID: TR0011a2CNUYZ1770716691730
+2026-02-10 15:46:05:465 error: bKash log not found for paymentID: TR0011a2CNUYZ1770716691730
+2026-02-10 15:46:54:4654 error: bKash log not found for paymentID: TR0011z2i988f1770716808335
+2026-02-10 15:47:08:478 error: bKash log not found for paymentID: TR0011z2i988f1770716808335
+2026-02-10 16:23:25:2325 error: [AuthMiddleware] Auth failure: jwt malformed
+2026-02-10 16:23:35:2335 error: [AuthMiddleware] Auth failure: jwt malformed

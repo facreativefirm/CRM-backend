@@ -19,12 +19,11 @@ import logger from '../utils/logger';
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        // First, try to get session token from header
-        const sessionToken = req.headers['x-session-token'] as string;
+        // 1. Try Session Authentication (Header or Query)
+        const sessionToken = (req.headers['x-session-token'] || req.query.sessionToken || req.query.token) as string;
 
         if (sessionToken) {
-            logger.debug('[AuthMiddleware] Validating session token from header');
-            // Validate session from database
+            logger.debug(`[Auth] Checking session token: ${sessionToken.substring(0, 10)}...`);
             const session = await prisma.session.findUnique({
                 where: { sessionToken },
                 include: {
@@ -37,95 +36,101 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
                 },
             });
 
-            if (!session) {
-                logger.warn('[AuthMiddleware] No session found in database for provided token');
-                throw new AppError('Invalid session. Please log in again.', 401);
+            if (session) {
+                logger.debug(`[Auth] Session found for user ${session.user.email}`);
+                // Check if session has expired
+                if (new Date() > session.expiresAt) {
+                    logger.warn('[Auth] Session has expired');
+                    await prisma.session.delete({ where: { id: session.id } }).catch(() => { });
+                    throw new AppError('Session expired. Please log in again.', 401);
+                }
+
+                // Check if user is active
+                if (session.user.status !== 'ACTIVE') {
+                    logger.warn('[Auth] User is not active:', session.user.status);
+                    throw new AppError('This user account is no longer active.', 403);
+                }
+
+                // Attach user to request
+                req.user = {
+                    id: session.user.id,
+                    email: session.user.email,
+                    userType: session.user.userType,
+                    resellerId: session.user.client?.resellerId || null,
+                    activeTicketId: session.activeTicketId,
+                    isGuest: session.user.client?.isGuest || false,
+                };
+
+                // Update session activity
+                await prisma.session.update({
+                    where: { id: session.id },
+                    data: { updatedAt: new Date() },
+                }).catch(() => { });
+
+                return next();
             }
-
-            // Check if session has expired
-            if (new Date() > session.expiresAt) {
-                logger.warn('[AuthMiddleware] Session has expired');
-                // Delete expired session
-                await prisma.session.delete({ where: { id: session.id } });
-                throw new AppError('Session expired. Please log in again.', 401);
-            }
-
-            // Check if user is active
-            if (session.user.status !== 'ACTIVE') {
-                logger.warn('[AuthMiddleware] User is not active:', session.user.status);
-                throw new AppError('This user account is no longer active.', 403);
-            }
-
-            // Attach user to request
-            req.user = {
-                id: session.user.id,
-                email: session.user.email,
-                userType: session.user.userType,
-                resellerId: session.user.client?.resellerId || null,
-                activeTicketId: session.activeTicketId,
-                isGuest: session.user.client?.isGuest || false,
-            };
-
-            // Update session activity
-            await prisma.session.update({
-                where: { id: session.id },
-                data: { updatedAt: new Date() },
-            });
-
-            return next();
         }
 
-        // Fallback to JWT validation (for backward compatibility)
+        // 2. Fallback to JWT Validation (Stateless)
         let token;
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
             token = req.headers.authorization.split(' ')[1];
-            logger.debug('[AuthMiddleware] Found Bearer token');
+            logger.debug('[Auth] Found Bearer token');
+        } else if (req.query.token) {
+            token = req.query.token as string;
+            logger.debug('[Auth] Found token in query parameters');
         }
 
         if (!token) {
+            logger.warn('[Auth] No token found in headers or query');
             throw new AppError('You are not logged in. Please log in to get access.', 401);
         }
 
-        const jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret && process.env.NODE_ENV === 'production') {
-            logger.error('[AuthMiddleware] JWT_SECRET is missing in production environment!');
-            throw new AppError('Server configuration error.', 500);
+        const jwtSecret = process.env.JWT_SECRET || 'secret';
+
+        try {
+            const decoded: any = jwt.verify(token, jwtSecret);
+            logger.debug(`[Auth] JWT verified for ID: ${decoded.id || decoded.userId}`);
+
+            const userId = decoded.id || decoded.userId;
+
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { client: true }
+            });
+
+            if (!user) {
+                logger.warn('[Auth] User belonging to JWT not found');
+                throw new AppError('The user belonging to this token no longer exists.', 401);
+            }
+
+            if (user.status !== 'ACTIVE') {
+                logger.warn('[Auth] JWT User is not active:', user.status);
+                throw new AppError('This user account is no longer active.', 403);
+            }
+
+            req.user = {
+                id: user.id,
+                email: user.email,
+                userType: user.userType,
+                resellerId: user.client?.resellerId || null,
+                isGuest: user.client?.isGuest || false,
+                activeTicketId: (decoded as any)?.ticketId || null
+            };
+
+            next();
+        } catch (jwtErr) {
+            logger.error(`[Auth] JWT Verification failed: ${jwtErr instanceof Error ? jwtErr.message : 'Unknown error'}`);
+            if (jwtErr instanceof jwt.TokenExpiredError) {
+                throw new AppError('Token expired. Please log in again.', 401);
+            }
+            throw new AppError('Invalid token. Please log in again.', 401);
         }
-
-        const decoded: any = jwt.verify(token, jwtSecret || 'secret');
-
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.id },
-            include: { client: true }
-        });
-
-        if (!user) {
-            logger.warn('[AuthMiddleware] User belonging to JWT not found');
-            throw new AppError('The user belonging to this token no longer exists.', 401);
-        }
-
-        if (user.status !== 'ACTIVE') {
-            logger.warn('[AuthMiddleware] JWT User is not active:', user.status);
-            throw new AppError('This user account is no longer active.', 403);
-        }
-
-        req.user = {
-            id: user.id,
-            email: user.email,
-            userType: user.userType,
-            resellerId: user.client?.resellerId || null,
-            isGuest: user.client?.isGuest || false,
-            activeTicketId: (decoded as any)?.ticketId || null
-        };
-
-        next();
     } catch (err) {
-        if (!(err instanceof AppError)) {
-            logger.error(`[AuthMiddleware] Auth failure: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        }
         if (err instanceof AppError) {
             next(err);
         } else {
+            logger.error(`[Auth] Unexpected failure: ${err instanceof Error ? err.message : 'Unknown error'}`);
             next(new AppError('Invalid authentication. Please log in again.', 401));
         }
     }

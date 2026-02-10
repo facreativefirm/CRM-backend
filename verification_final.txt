@@ -1,0 +1,45 @@
+﻿[dotenv@17.2.3] injecting env (13) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from ..\.env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
+[Env] DATABASE_URL is LOADED and cleaned: postgresql://postgres:****@localhost:5433/crm_database?schema=public
+[Env] ALLOWED_ORIGINS is LOADED and cleaned: http:...
+[Env] JWT_SECRET is LOADED and cleaned: d8f9g...
+[Env] REDIS_URL is LOADED and cleaned: redis://127.0.0.1:6379
+============================================================
+ENCRYPTION VERIFICATION REPORT
+============================================================
+
+Found 5 sensitive credential(s)
+
+Field: smtpPass
+  Value Preview: 7acd258b34a3736d8dda...
+  Encrypted Flag: Γ£à TRUE
+  Format Check: Γ£à ENCRYPTED (iv:tag:data)
+  Status: Γ£à SECURE
+
+Field: nagadPrivateKey
+  Value Preview: 2b59ef9d288582b29df7...
+  Encrypted Flag: Γ£à TRUE
+  Format Check: Γ£à ENCRYPTED (iv:tag:data)
+  Status: Γ£à SECURE
+
+Field: bkashAppSecret
+  Value Preview: cc51ac285b0fc1d02f33...
+  Encrypted Flag: Γ£à TRUE
+  Format Check: Γ£à ENCRYPTED (iv:tag:data)
+  Status: Γ£à SECURE
+
+Field: bkashPassword
+  Value Preview: 40e9bb6dc16c8acc0b62...
+  Encrypted Flag: Γ£à TRUE
+  Format Check: Γ£à ENCRYPTED (iv:tag:data)
+  Status: Γ£à SECURE
+
+Field: nagadPublicKey
+  Value Preview: d77b6f7c91c241f66141...
+  Encrypted Flag: Γ£à TRUE
+  Format Check: Γ£à ENCRYPTED (iv:tag:data)
+  Status: Γ£à SECURE
+
+============================================================
+Γ£à ALL CREDENTIALS ARE ENCRYPTED AND FLAGGED CORRECTLY
+============================================================

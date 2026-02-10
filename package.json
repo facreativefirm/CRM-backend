@@ -12,7 +12,10 @@
     "postinstall": "prisma generate",
     "start": "node dist/src/server.js",
     "start:production": "NODE_ENV=production node dist/src/server.js",
-    "test": "jest"
+    "test": "jest",
+    "generate-key": "ts-node scripts/generate-encryption-key.ts",
+    "encrypt-credentials": "ts-node scripts/encrypt-credentials.ts",
+    "test-encryption": "ts-node scripts/test-encryption.ts"
   },
   "keywords": [],
   "author": "",

@@ -409,7 +409,7 @@ export const updateInvoiceStatus = async (req: AuthRequest, res: Response) => {
 
                 try {
                     if (inv.client.user.email) {
-                        const emailData = emailService.EmailTemplates.invoicePaid(inv.invoiceNumber);
+                        const emailData = emailService.EmailTemplates.invoicePaid(inv.invoiceNumber, inv.status);
                         await emailService.sendEmail(inv.client.user.email, emailData.subject, emailData.body);
                     }
 

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import logger from '../utils/logger';
 import prisma from '../config/database';
+import encryptionService from './encryption.service';
 
 interface BkashCredentials {
     appKey: string;
@@ -34,7 +35,25 @@ export class BkashService {
         });
 
         const settingsMap = settings.reduce((acc: any, curr) => {
-            acc[curr.settingKey] = curr.settingValue;
+            // Decrypt sensitive fields
+            if (['bkashAppSecret', 'bkashPassword'].includes(curr.settingKey)) {
+                try {
+                    // Check if value is encrypted
+                    if (encryptionService.isEncrypted(curr.settingValue)) {
+                        acc[curr.settingKey] = encryptionService.decrypt(curr.settingValue);
+                        logger.debug(`Decrypted ${curr.settingKey}`);
+                    } else {
+                        // Not encrypted yet (backward compatibility)
+                        acc[curr.settingKey] = curr.settingValue;
+                        logger.warn(`⚠️  ${curr.settingKey} is not encrypted. Please re-save credentials.`);
+                    }
+                } catch (error: any) {
+                    logger.error(`Failed to decrypt ${curr.settingKey}:`, error.message);
+                    throw new Error(`Failed to decrypt bKash credentials. Please check ENCRYPTION_KEY.`);
+                }
+            } else {
+                acc[curr.settingKey] = curr.settingValue;
+            }
             return acc;
         }, {});
 

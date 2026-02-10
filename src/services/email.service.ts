@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import prisma from '../config/database';
+import encryptionService from './encryption.service';
 
 /**
  * Modern System Email Wrapper
@@ -77,12 +78,22 @@ const getEmailSettings = async () => {
 
     const config: Record<string, string> = {};
     settings.forEach(s => {
-        config[s.settingKey] = s.settingValue;
+        if (s.settingKey === 'smtpPass') {
+            try {
+                if (encryptionService.isEncrypted(s.settingValue)) {
+                    config[s.settingKey] = encryptionService.decrypt(s.settingValue);
+                } else {
+                    config[s.settingKey] = s.settingValue;
+                    console.warn(`⚠️  smtpPass is not encrypted. Please re-save settings.`);
+                }
+            } catch (error: any) {
+                console.error(`[EmailService] Failed to decrypt smtpPass:`, error.message);
+                config[s.settingKey] = s.settingValue;
+            }
+        } else {
+            config[s.settingKey] = s.settingValue;
+        }
     });
-
-    console.log(`[EmailService] Loaded ${settings.length} SMTP settings from database:`,
-        Object.keys(config).map(k => `${k}: ${k === 'smtpPass' ? '***' : config[k]}`).join(', ')
-    );
 
     return config;
 };
@@ -91,7 +102,6 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
     const config = await getEmailSettings();
     let appName = config.smtpFromName || 'Client Portal';
 
-    // White-label detection logic: Check if recipient belongs to a Reseller
     try {
         const client = await prisma.client.findFirst({
             where: { user: { email: to } },
@@ -112,19 +122,9 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
     }
 
     if (!config.smtpHost || !config.smtpUser || !config.smtpPass) {
-        console.error(`[EmailService] CRITICAL: Email settings are INCOMPLETE in the database. 
-            Required: smtpHost, smtpUser, smtpPass.
-            Current Config: ${JSON.stringify(config)}
-            Target: ${to} | Subject: ${subject}`);
+        console.error(`[EmailService] CRITICAL: Email settings are INCOMPLETE in the database.`);
         return;
     }
-
-    console.log(`[EmailService] Attempting to send email:
-        To: ${to}
-        Subject: ${subject}
-        Host: ${config.smtpHost}
-        User: ${config.smtpUser}
-        Port: ${config.smtpPort || '587'}`);
 
     try {
         const transporter = nodemailer.createTransport({
@@ -137,9 +137,7 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
             },
         });
 
-        // Verify connection configuration
         await transporter.verify();
-        console.log(`[EmailService] SMTP connection verified successfully.`);
 
         const info = await transporter.sendMail({
             from: `"${appName}" <${config.smtpFromEmail || config.smtpUser}>`,
@@ -152,13 +150,7 @@ export const sendEmail = async (to: string, subject: string, html: string, attac
         console.log(`[EmailService] Email successfully sent to ${to}. MessageID: ${info.messageId}`);
         return info;
     } catch (error: any) {
-        console.error('[EmailService] FAILED to send email:', {
-            target: to,
-            subject: subject,
-            errorMessage: error.message,
-            errorCode: error.code,
-            command: error.command
-        });
+        console.error('[EmailService] FAILED to send email:', error.message);
         throw error;
     }
 };
@@ -198,7 +190,7 @@ export const EmailTemplates = {
                 </table>
             </div>
 
-            <p style="margin: 0 0 32px 0;">We will notify you via email as soon as your services are ready for use. In the meantime, you can track your order status in the client portal.</p>
+            <p style="margin: 0 0 32px 0;">We have attached a copy of the invoice for this order to this email. We will notify you via email as soon as your services are ready for use. In the meantime, you can track your order status in the client portal.</p>
             
             <div style="text-align: center;">
                 <a href="#" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block; transition: background-color 0.2s;">View Order Status</a>
@@ -221,7 +213,6 @@ export const EmailTemplates = {
             amount = total || "";
         }
 
-        // Helper if needed, but assuming totalAmount is available or passed
         function calculateTotal(inv: any) {
             return inv.totalAmount || "0.00";
         }
@@ -263,29 +254,36 @@ export const EmailTemplates = {
         };
     },
 
-    invoicePaid: (invoiceNumber: string) => ({
-        subject: `Payment Confirmation: Invoice #${invoiceNumber}`,
-        body: `
-            <div style="text-align: center; margin-bottom: 24px;">
-                <div style="background-color: #d1fae5; width: 64px; height: 64px; border-radius: 32px; display: inline-block; line-height: 64px; text-align: center;">
-                    <span style="color: #059669; font-size: 32px;">&check;</span>
+    invoicePaid: (invoiceNumber: string, status?: string) => {
+        const isPartial = status === 'PARTIALLY_PAID';
+        return {
+            subject: isPartial ? `Partial Payment Received: Invoice #${invoiceNumber}` : `Payment Confirmation: Invoice #${invoiceNumber}`,
+            body: `
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="background-color: #d1fae5; width: 64px; height: 64px; border-radius: 32px; display: inline-block; line-height: 64px; text-align: center;">
+                        <span style="color: #059669; font-size: 32px;">&check;</span>
+                    </div>
                 </div>
-            </div>
-            <h2 style="text-align: center; color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Payment Successful</h2>
-            <p style="text-align: center; margin: 0 0 24px 0; color: #4b5563;">Thank you for your payment. We’ve successfully processed the transaction for your invoice.</p>
-            
-            <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 24px; margin-bottom: 32px; text-align: center;">
-                <p style="margin: 0 0 4px 0; color: #166534; font-size: 14px; font-weight: 500;">Invoice Settled</p>
-                <p style="margin: 0; color: #111827; font-size: 20px; font-weight: 700;">#${invoiceNumber}</p>
-            </div>
+                <h2 style="text-align: center; color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Payment Successful</h2>
+                <p style="text-align: center; margin: 0 0 24px 0; color: #4b5563;">Thank you for your payment. We’ve successfully processed the transaction for your invoice.</p>
+                
+                <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 24px; margin-bottom: 32px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #166534; font-size: 14px; font-weight: 500;">${isPartial ? 'Partial Payment Received' : 'Invoice Settled'}</p>
+                    <p style="margin: 0; color: #111827; font-size: 20px; font-weight: 700;">#${invoiceNumber}</p>
+                </div>
 
-            <p style="margin: 0 0 32px 0; text-align: center;">A copy of your paid invoice has been attached to this email for your records. Your services will continue to remain active.</p>
-            
-            <div style="text-align: center;">
-                <a href="#" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Client Portal</a>
-            </div>
-        `
-    }),
+                <p style="margin: 0 0 32px 0; text-align: center;">
+                    ${isPartial
+                    ? 'A money receipt for this payment has been attached. Please settle the remaining balance to activate your services.'
+                    : 'A copy of your money receipt has been attached to this email for your records. Your services will remain active.'}
+                </p>
+                
+                <div style="text-align: center;">
+                    <a href="#" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Client Portal</a>
+                </div>
+            `
+        };
+    },
 
     domainExpirationReminder: (domainName: string, expiryDate: string) => ({
         subject: `ACTION REQUIRED: Your domain ${domainName} expires soon`,
@@ -363,7 +361,7 @@ export const EmailTemplates = {
             </div>
             
             <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Payment Verification Failed</h2>
-            <p style="margin: 0 0 24px 0;">We were unable to verify your recent payment for Invoice <strong>#${invoiceNumber}</strong>.</p>
+            <p style="margin: 0 0 24px 0;">We were unable to verify your recent payment for Invoice <strong> #${invoiceNumber}</strong>.</p>
             
             <p style="margin: 0 0 24px 0; color: #4b5563;">Reason: ${reason || 'Invalid Transaction Details'}</p>
 
@@ -452,6 +450,110 @@ export const EmailTemplates = {
             
             <div style="text-align: center;">
                 <a href="#" style="background-color: #111827; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">View Item in Admin</a>
+            </div>
+        `
+    }),
+
+    adminPayoutNotification: (userName: string, amount: string, method: string, type: string) => ({
+        subject: `ACTION REQUIRED: New Payout Request from ${userName}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">New Payout Request</h2>
+            <p style="margin: 0 0 24px 0;">A new payout request has been submitted by a <strong>${type}</strong>.</p>
+            
+            <div style="background-color: #f3f4f6; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">User</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Amount</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #6b7280; font-size: 14px;">Method</td>
+                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${method}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Please log in to the admin panel to review and process this request.</p>
+        `
+    }),
+
+    adminManualPayment: (invoiceNumber: string, clientName: string, amount: string, gateway: string, transactionId: string, senderNumber: string) => ({
+        subject: `ACTION REQUIRED: Manual Payment Proof #${invoiceNumber}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Manual Payment Proof Submitted</h2>
+            <p style="margin: 0 0 24px 0;">A client has submitted manual payment proof for their invoice.</p>
+            
+            <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Invoice #</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${invoiceNumber}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Client</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${clientName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Amount</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Gateway</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${gateway}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Transaction ID</td>
+                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${transactionId}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #6b7280; font-size: 14px;">Sender Number</td>
+                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${senderNumber}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Please review the proof and approve/reject the transaction in the admin billing section.</p>
+            <div style="text-align: center;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/billing?tab=transactions" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Transactions</a>
+            </div>
+        `
+    }),
+
+    serviceCancellationRequest: (serviceName: string, clientName: string, type: string, reason: string) => ({
+        subject: `ACTION REQUIRED: Cancellation Request for ${serviceName}`,
+        body: `
+            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Service Cancellation Request</h2>
+            <p style="margin: 0 0 24px 0;">A client has requested to cancel their service. Administrative action is required.</p>
+            
+            <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Service Name</td>
+                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${serviceName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Client</td>
+                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${clientName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Type</td>
+                        <td style="padding-bottom: 12px; color: #ef4444; font-size: 14px; font-weight: 600; text-align: right;">${type}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-top: 12px; border-top: 1px solid #fee2e2; color: #6b7280; font-size: 14px; font-weight: 500;">Reason</td>
+                        <td style="padding-top: 12px; border-top: 1px solid #fee2e2; color: #111827; font-size: 14px; text-align: right;">${reason}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 32px 0;">Please log in to the admin panel to process this request (Suspend, Terminate, or Reach out to the client).</p>
+            
+            <div style="text-align: center;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/services" style="background-color: #111827; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Admin Panel</a>
             </div>
         `
     }),
@@ -550,75 +652,6 @@ export const EmailTemplates = {
         `
     }),
 
-    adminPayoutNotification: (userName: string, amount: string, method: string, type: string) => ({
-        subject: `ACTION REQUIRED: New Payout Request from ${userName}`,
-        body: `
-            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">New Payout Request</h2>
-            <p style="margin: 0 0 24px 0;">A new payout request has been submitted by a <strong>${type}</strong>.</p>
-            
-            <div style="background-color: #f3f4f6; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
-                <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">User</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Amount</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
-                    </tr>
-                    <tr>
-                        <td style="color: #6b7280; font-size: 14px;">Method</td>
-                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${method}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <p style="margin: 0 0 32px 0;">Please log in to the admin panel to review and process this request.</p>
-        `
-    }),
-
-    adminManualPayment: (invoiceNumber: string, clientName: string, amount: string, gateway: string, transactionId: string, senderNumber: string) => ({
-        subject: `ACTION REQUIRED: Manual Payment Proof #${invoiceNumber}`,
-        body: `
-            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Manual Payment Proof Submitted</h2>
-            <p style="margin: 0 0 24px 0;">A client has submitted manual payment proof for their invoice.</p>
-            
-            <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
-                <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Invoice #</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${invoiceNumber}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Client</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${clientName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Amount</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Gateway</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${gateway}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 8px; color: #6b7280; font-size: 14px;">Transaction ID</td>
-                        <td style="padding-bottom: 8px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${transactionId}</td>
-                    </tr>
-                    <tr>
-                        <td style="color: #6b7280; font-size: 14px;">Sender Number</td>
-                        <td style="color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${senderNumber}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <p style="margin: 0 0 32px 0;">Please review the proof and approve/reject the transaction in the admin billing section.</p>
-            <div style="text-align: center;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/billing?tab=transactions" style="background-color: #0a66c2; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Transactions</a>
-            </div>
-        `
-    }),
-
     adminTransitionNotification: (type: string, details: string) => ({
         subject: `System Alert: New Client ${type}`,
         body: `
@@ -633,41 +666,6 @@ export const EmailTemplates = {
         `
     }),
 
-    serviceCancellationRequest: (serviceName: string, clientName: string, type: string, reason: string) => ({
-        subject: `ACTION REQUIRED: Cancellation Request for ${serviceName}`,
-        body: `
-            <h2 style="color: #111827; margin: 0 0 16px 0; font-size: 24px; font-weight: 700;">Service Cancellation Request</h2>
-            <p style="margin: 0 0 24px 0;">A client has requested to cancel their service. Administrative action is required.</p>
-            
-            <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
-                <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Service Name</td>
-                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${serviceName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Client</td>
-                        <td style="padding-bottom: 12px; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${clientName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-bottom: 12px; color: #6b7280; font-size: 14px; font-weight: 500;">Type</td>
-                        <td style="padding-bottom: 12px; color: #ef4444; font-size: 14px; font-weight: 600; text-align: right;">${type}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding-top: 12px; border-top: 1px solid #fee2e2; color: #6b7280; font-size: 14px; font-weight: 500;">Reason</td>
-                        <td style="padding-top: 12px; border-top: 1px solid #fee2e2; color: #111827; font-size: 14px; text-align: right;">${reason}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <p style="margin: 0 0 32px 0;">Please log in to the admin panel to process this request (Suspend, Terminate, or Reach out to the client).</p>
-            
-            <div style="text-align: center;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/services" style="background-color: #111827; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Go to Admin Panel</a>
-            </div>
-        `
-    }),
-
     notification: (subject: string, message: string) => ({
         subject,
         body: `
@@ -677,4 +675,5 @@ export const EmailTemplates = {
     })
 };
 
-export default { sendEmail, EmailTemplates };
+const emailService = { sendEmail, EmailTemplates };
+export default emailService;

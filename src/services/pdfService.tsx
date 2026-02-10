@@ -183,7 +183,9 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName, tax
                     </View>
                 </View>
                 <View>
-                    <Text style={styles.invoiceTitle}>INVOICE</Text>
+                    <Text style={styles.invoiceTitle}>
+                        {invoice.status === 'PAID' ? 'MONEY RECEIPT' : (invoice.status === 'PARTIALLY_PAID' ? 'MONEY RECEIPT' : 'INVOICE')}
+                    </Text>
                     <Text style={styles.invoiceNumber}>#{invoice.invoiceNumber || invoice.id}</Text>
                     <Text style={styles.invoiceDate}>
                         Date: {new Date(invoice.invoiceDate || invoice.createdAt).toLocaleDateString()}
@@ -240,6 +242,19 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName, tax
                         <Text style={styles.grandTotalLabel}>Total</Text>
                         <Text style={styles.grandTotalAmount}>{currencySymbol}{Number(invoice.totalAmount).toFixed(2)}</Text>
                     </View>
+
+                    {Number(invoice.amountPaid) > 0 && (
+                        <>
+                            <View style={[styles.totalRow, { color: '#059669', fontWeight: 'bold' }]}>
+                                <Text>Total Paid</Text>
+                                <Text>{currencySymbol}{Number(invoice.amountPaid).toFixed(2)}</Text>
+                            </View>
+                            <View style={[styles.totalRow, { marginTop: 5, borderTop: '0.5px solid #e5e7eb', paddingTop: 5 }]}>
+                                <Text>Balance Due</Text>
+                                <Text>{currencySymbol}{Math.max(0, Number(invoice.totalAmount) - Number(invoice.amountPaid)).toFixed(2)}</Text>
+                            </View>
+                        </>
+                    )}
                 </View>
             </View>
 
@@ -263,4 +278,147 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName, tax
  */
 export const generateInvoicePDF = async (invoice: any, appName: string = 'FA CRM', taxName: string = 'Tax', currencySymbol: string = '$'): Promise<Buffer> => {
     return await renderToBuffer(<InvoiceDocument invoice={invoice} appName={appName} taxName={taxName} currencySymbol={currencySymbol} />);
+};
+
+/**
+ * Money Receipt Document Component
+ */
+const MoneyReceiptDocument = ({ transaction, invoice, appName, taxName, currencySymbol }: {
+    transaction: any;
+    invoice: any;
+    appName: string;
+    taxName: string;
+    currencySymbol: string;
+}) => (
+    <Document>
+        <Page size="A4" style={styles.page}>
+            {/* Header Section */}
+            <View style={styles.header}>
+                <View style={styles.companyInfo}>
+                    <Text style={styles.companyName}>{appName}</Text>
+                    <View style={styles.companyDetails}>
+                        <Text>Professional Hosting & Domain Services</Text>
+                        <Text>support@{appName.toLowerCase().replace(/\s/g, '')}.com</Text>
+                    </View>
+                </View>
+                <View>
+                    <Text style={[styles.invoiceTitle, { color: '#059669' }]}>MONEY RECEIPT</Text>
+                    <Text style={styles.invoiceNumber}>Receipt #{transaction.id}</Text>
+                    <Text style={styles.invoiceDate}>
+                        Date: {new Date(transaction.createdAt).toLocaleDateString()}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Client Information */}
+            <View style={styles.clientSection}>
+                <Text style={styles.sectionTitle}>RECEIVED FROM</Text>
+                <Text style={styles.clientName}>
+                    {invoice.client?.user?.firstName} {invoice.client?.user?.lastName}
+                </Text>
+                {invoice.client?.companyName && (
+                    <Text style={styles.clientDetails}>{invoice.client.companyName}</Text>
+                )}
+                <View style={styles.clientDetails}>
+                    <Text>{invoice.client?.user?.email}</Text>
+                </View>
+            </View>
+
+            {/* Payment Information Box */}
+            <View style={{
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #dcfce7',
+                borderRadius: 8,
+                padding: 16,
+                marginBottom: 20
+            }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 10, color: '#166534', fontWeight: 'bold' }}>Payment Amount:</Text>
+                    <Text style={{ fontSize: 14, color: '#059669', fontWeight: 'bold' }}>
+                        {currencySymbol}{Number(transaction.amount).toFixed(2)}
+                    </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 9, color: '#6b7280' }}>Payment Method:</Text>
+                    <Text style={{ fontSize: 9, color: '#111827', fontWeight: 'bold' }}>
+                        {transaction.gateway || 'N/A'}
+                    </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 9, color: '#6b7280' }}>Transaction ID:</Text>
+                    <Text style={{ fontSize: 9, color: '#111827', fontWeight: 'bold' }}>
+                        {transaction.transactionId || `TXN-${transaction.id}`}
+                    </Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 9, color: '#6b7280' }}>Related Invoice:</Text>
+                    <Text style={{ fontSize: 9, color: '#0a66c2', fontWeight: 'bold' }}>
+                        #{invoice.invoiceNumber}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Invoice Items Breakdown */}
+            <View style={{ marginBottom: 10 }}>
+                <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>PAYMENT FOR</Text>
+            </View>
+
+            <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                    <Text style={[styles.tableColDescription, styles.headerText]}>Description</Text>
+                    <Text style={[styles.tableColQty, styles.headerText]}>Qty</Text>
+                    <Text style={[styles.tableColPrice, styles.headerText]}>Unit Price</Text>
+                    <Text style={[styles.tableColTotal, styles.headerText]}>Total</Text>
+                </View>
+                {invoice.items.map((item: any) => (
+                    <View key={item.id} style={styles.tableRow}>
+                        <Text style={styles.tableColDescription}>{item.description}</Text>
+                        <Text style={styles.tableColQty}>{item.quantity}</Text>
+                        <Text style={styles.tableColPrice}>{currencySymbol}{Number(item.unitPrice).toFixed(2)}</Text>
+                        <Text style={styles.tableColTotal}>
+                            {currencySymbol}{Number(item.total || (item.quantity * item.unitPrice)).toFixed(2)}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+
+
+
+            {/* Admin Notes (if any) */}
+            {transaction.adminNotes && (
+                <View style={styles.notesSection}>
+                    <Text style={styles.notesTitle}>Payment Notes</Text>
+                    <Text style={styles.notesText}>{transaction.adminNotes}</Text>
+                </View>
+            )}
+
+            {/* Footer */}
+            <View style={styles.footer}>
+                <Text>This is a computer-generated receipt and requires no signature.</Text>
+                <Text>Thank you for your payment.</Text>
+                <Text>Generated by {appName}</Text>
+            </View>
+        </Page>
+    </Document>
+);
+
+/**
+ * Generate Money Receipt PDF Buffer
+ */
+export const generateMoneyReceiptPDF = async (
+    transaction: any,
+    invoice: any,
+    appName: string = 'FA CRM',
+    taxName: string = 'Tax',
+    currencySymbol: string = '$'
+): Promise<Buffer> => {
+    return await renderToBuffer(
+        <MoneyReceiptDocument
+            transaction={transaction}
+            invoice={invoice}
+            appName={appName}
+            taxName={taxName}
+            currencySymbol={currencySymbol}
+        />
+    );
 };
