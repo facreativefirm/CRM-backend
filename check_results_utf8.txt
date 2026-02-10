@@ -1,0 +1,13 @@
+﻿[dotenv@17.2.3] injecting env (13) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from ..\.env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+[Env] DATABASE_URL is LOADED and cleaned: postgresql://postgres:****@localhost:5433/crm_database?schema=public
+[Env] ALLOWED_ORIGINS is LOADED and cleaned: http:...
+[Env] JWT_SECRET is LOADED and cleaned: d8f9g...
+[Env] REDIS_URL is LOADED and cleaned: redis://127.0.0.1:6379
+--- Checking PaymentGateway Table ---
+
+--- Checking SystemSetting Table ---
+nagadPrivateKey: ENCRYPTED (2b59e...)
+bkashAppSecret: ENCRYPTED (cc51a...)
+bkashPassword: ENCRYPTED (40e9b...)
+nagadPublicKey: ENCRYPTED (d77b6...)

@@ -1,0 +1,41 @@
+﻿[dotenv@17.2.3] injecting env (13) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from ..\.env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+[Env] DATABASE_URL is LOADED and cleaned: postgresql://postgres:****@localhost:5433/crm_database?schema=public
+[Env] ALLOWED_ORIGINS is LOADED and cleaned: http:...
+[Env] JWT_SECRET is LOADED and cleaned: d8f9g...
+[Env] REDIS_URL is LOADED and cleaned: redis://127.0.0.1:6379
+--- ALL SYSTEM SETTINGS ---
+[BKASH] bkashToken: eyJraWQiOiJEWXd6RU9Fd3h5Q3lkRVwvUnJZU1BOcGk5MENBQk... (Encrypted: false)
+[general] nagadPrivateKey: 2b59ef9d288582b29df7c22fcdc96a32:1a9b3e2a585d354bd... (Encrypted: false)
+[BKASH] bkashTokenExpiry: 1770708333150... (Encrypted: false)
+[general] supportEmail: info@facreative.biz... (Encrypted: false)
+[general] smtpPass: ^W}CYfNXPsx%tZ0_... (Encrypted: false)
+[general] smtpFromName: FA Creative Firm LTD... (Encrypted: false)
+[general] taxName: Tax... (Encrypted: false)
+[BKASH] bkashEnabled: true... (Encrypted: false)
+[BKASH] bkashUsername: 01831395555... (Encrypted: false)
+[general] companyAddress: Akhtaruzzaman Center, 9th Floor (Lift-9), 21/22,
+A... (Encrypted: false)
+[BKASH] bkashAppSecret: cc51ac285b0fc1d02f33ac5c1fbc5aee:ffecb70ae406ed941... (Encrypted: false)
+[BKASH] bkashPassword: 40e9bb6dc16c8acc0b627a3cb195008a:456c770b85c09d94f... (Encrypted: false)
+[general] appName: F. A. Creative Firm Ltd... (Encrypted: false)
+[general] smtpFromEmail: support@facreativefirm.com... (Encrypted: false)
+[general] smtpSecure: true... (Encrypted: false)
+[general] nagadEnabled: true... (Encrypted: false)
+[general] nagadMerchantId: 688313955555399... (Encrypted: false)
+[general] nagadRunMode: production... (Encrypted: false)
+[BKASH] bkashAppKey: pRPIAngknBv7CVRaHKARE00Xtc... (Encrypted: false)
+[general] defaultCurrency: BDT... (Encrypted: false)
+[general] allowedApiIps: ... (Encrypted: false)
+[general] force2FA: false... (Encrypted: false)
+[general] defaultLanguage: english... (Encrypted: false)
+[general] maintenanceMode: true... (Encrypted: false)
+[BKASH] bkashRunMode: production... (Encrypted: false)
+[general] smtpHost: mail.facreativefirm.com... (Encrypted: false)
+[general] smtpPort: 465... (Encrypted: false)
+[general] smtpUser: support@facreativefirm.com... (Encrypted: false)
+[general] nagadPublicKey: d77b6f7c91c241f6614144e8f4378f37:afd579b64d2e27dbf... (Encrypted: false)
+[general] phoneNumber: +8801877776655... (Encrypted: false)
+[general] taxRate: 0... (Encrypted: false)
+
+--- ALL PAYMENT GATEWAYS ---

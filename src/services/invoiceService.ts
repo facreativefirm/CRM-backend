@@ -5,7 +5,7 @@ import { MarketingService } from './marketingService';
 import { ResellerService } from './resellerService';
 import { InvestorService } from './investor.service';
 import { sendEmail, EmailTemplates } from './email.service';
-import { generateInvoicePDF } from './pdfService';
+import { generateInvoicePDF, generateMoneyReceiptPDF } from './pdfService';
 import * as settingsService from './settingsService';
 import { WebhookService } from './webhook.service';
 
@@ -22,7 +22,11 @@ const generateInvoiceNumber = () => {
 /**
  * Create Invoice from Order
  */
-export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.TransactionClient) => {
+export const createInvoiceFromOrder = async (
+    orderId: number,
+    tx?: Prisma.TransactionClient,
+    options: { sendEmail?: boolean } = { sendEmail: true }
+) => {
     const db = tx || prisma;
     const order = await db.order.findUnique({
         where: { id: orderId },
@@ -114,32 +118,33 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
             items: true,
             client: { include: { user: true } }
         }
-    });
+    }) as any;
 
-    // 4. Send Email with PDF Attachment
-    try {
-        const appName = await settingsService.getSetting('appName', 'FA CRM');
-        const taxName = await settingsService.getSetting('taxName', 'Tax');
-        const currencySymbol = await settingsService.getCurrencySymbol();
-        const pdfBuffer = await generateInvoicePDF(fullInvoice, appName, taxName, currencySymbol);
-        const { subject, body } = EmailTemplates.invoiceCreated(
-            invoice.invoiceNumber,
-            invoice.dueDate.toLocaleDateString(),
-            invoice.totalAmount.toString()
-        );
+    // 4. Send Email with PDF Attachment (Optional)
+    if (options.sendEmail !== false) {
+        try {
+            const appName = await settingsService.getSetting('appName', 'FA CRM');
+            const taxName = await settingsService.getSetting('taxName', 'Tax');
+            const currencySymbol = await settingsService.getCurrencySymbol();
+            const pdfBuffer = await generateInvoicePDF(fullInvoice, appName, taxName, currencySymbol);
+            const { subject, body } = EmailTemplates.invoiceCreated(
+                invoice.invoiceNumber,
+                invoice.dueDate.toLocaleDateString(),
+                invoice.totalAmount.toString()
+            );
 
-        await sendEmail(order.client.user.email, subject, body, [
-            { filename: `Invoice-${invoice.invoiceNumber}.pdf`, content: pdfBuffer }
-        ]);
-    } catch (e) {
-        console.error("Invoice email processing failed:", e);
+            await sendEmail(order.client.user.email, subject, body, [
+                { filename: `Invoice-${invoice.invoiceNumber}.pdf`, content: pdfBuffer }
+            ]);
+        } catch (e) {
+            console.error("Invoice email processing failed:", e);
+        }
     }
 
     // Webhook Dispatch
     WebhookService.dispatch('invoice.created', fullInvoice).catch(e => console.error("Webhook dispatch failed", e));
 
-
-    return invoice;
+    return { invoice, fullInvoice };
 };
 
 /**
@@ -354,13 +359,30 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
 
     // 5. POST-TRANSACTION EMAILS (Non-blocking)
     if (result.fullInvoice) {
-        // Send Payment Paid Email
+        // Send Payment Paid Email with Money Receipt
         try {
-            const pdfBuffer = await generateInvoicePDF(result.fullInvoice);
-            const { subject, body } = EmailTemplates.invoicePaid(result.updatedInvoice.invoiceNumber);
+            // Generate Money Receipt PDF instead of Invoice PDF
+            const appName = await settingsService.getSetting('appName', 'FA CRM');
+            const taxName = await settingsService.getSetting('taxName', 'Tax');
+            const currencySymbol = await settingsService.getCurrencySymbol();
+
+            const pdfBuffer = await generateMoneyReceiptPDF(
+                result.transaction,
+                result.fullInvoice,
+                appName,
+                taxName,
+                currencySymbol
+            );
+
+            const { subject, body } = EmailTemplates.invoicePaid(
+                result.updatedInvoice.invoiceNumber,
+                result.updatedInvoice.status
+            );
+
+            const filename = `Receipt-${result.updatedInvoice.invoiceNumber}-TXN${result.transaction.id}.pdf`;
 
             await sendEmail((result.fullInvoice as any).client.user.email, subject, body, [
-                { filename: `Paid_Invoice-${result.updatedInvoice.invoiceNumber}.pdf`, content: pdfBuffer }
+                { filename, content: pdfBuffer }
             ]);
 
             // Notify Admins
@@ -370,7 +392,7 @@ export const recordPayment = async (invoiceId: number, amount: Prisma.Decimal, g
             });
 
             const adminNotification = EmailTemplates.adminTransitionNotification(
-                'Invoice Paid (Gateway/Callback)',
+                'Invoice Payment Received',
                 `Invoice: #${result.updatedInvoice.invoiceNumber}\nClient: ${(result.fullInvoice as any).client.user.firstName} ${(result.fullInvoice as any).client.user.lastName}\nAmount: ${amount}\nMethod: ${gateway}\nTransaction ID: ${transactionId}`
             );
 
