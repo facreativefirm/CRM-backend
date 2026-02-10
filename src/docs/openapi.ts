@@ -7,7 +7,7 @@ export const openApiSpec = {
     },
     servers: [
         {
-            url: 'https://clientarea.facreativefirm.com/api',
+            url: 'https://clientarea.facreative.biz/api',
             description: 'Production Server',
         },
         {

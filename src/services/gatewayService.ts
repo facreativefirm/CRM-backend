@@ -16,7 +16,10 @@ export class PaymentGatewayService {
 
         try {
             const bkashService = (await import('./bkash.service')).default;
-            const backendBaseUrl = process.env.BACKEND_URL || 'http://localhost:3006';
+            const backendBaseUrl = (process.env.BACKEND_URL || '').replace(/\/$/, '');
+            if (!backendBaseUrl) {
+                logger.error('BACKEND_URL is missing! Payment callback will fail.');
+            }
             const callbackUrl = `${backendBaseUrl}/api/bkash/callback`;
 
             logger.debug(`bKash Generated Callback URL (GatewayService): ${callbackUrl}`);

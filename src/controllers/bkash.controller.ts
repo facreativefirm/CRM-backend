@@ -31,10 +31,16 @@ export class BkashController {
                 throw new AppError('Invoice is already paid', 400);
             }
 
-            // Get frontend URL for callback
-            const frontendUrl = process.env.FRONTEND_URL || 'https://clientarea.facreative.biz';
+            // Get frontend URL for callback strictly from Environment
+            const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+
+            if (!frontendUrl) {
+                logger.error('FRONTEND_URL is not defined in environment variables! Redirections may fail.');
+            }
+
             // bKash callback should point to a backend route that confirms payment
-            const backendBaseUrl = process.env.BACKEND_URL || 'http://localhost:3006';
+            // Use the current request host if BACKEND_URL is missing, ensuring no localhost fallbacks
+            const backendBaseUrl = (process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
             const callbackUrl = `${backendBaseUrl}/api/bkash/callback`;
 
             logger.debug(`bKash Generated Callback URL: ${callbackUrl}`);
@@ -91,8 +97,11 @@ export class BkashController {
 
             logger.info(`bKash callback received for ID: ${paymentID}, status: ${status}`);
 
+            // Get frontend URL for redirects - remove trailing slash for consistency
+            const frontendUrl = (process.env.FRONTEND_URL || 'https://clientarea.facreative.biz').replace(/\/$/, '');
+
             if (!paymentID) {
-                return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?msg=Missing%20PaymentID`);
+                return res.redirect(`${frontendUrl}/payment/failed?msg=Missing%20PaymentID`);
             }
 
             // Find the initiation log first to get context (invoiceId) even for failures
@@ -105,14 +114,14 @@ export class BkashController {
 
             if (!log) {
                 logger.error(`bKash log not found for paymentID: ${paymentID}`);
-                return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?msg=Invalid%20Session`);
+                return res.redirect(`${frontendUrl}/payment/failed?msg=Invalid%20Session`);
             }
 
             const { invoiceId, amount } = JSON.parse(log.requestData as string);
 
             if (status === 'cancel' || status === 'failure') {
                 logger.warn(`bKash payment ${status} for Invoice ${invoiceId}`);
-                return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?invoiceId=${invoiceId}&gateway=bkash&msg=Payment%20${status}`);
+                return res.redirect(`${frontendUrl}/payment/failed?invoiceId=${invoiceId}&gateway=bkash&msg=Payment%20${status}`);
             }
 
             // IDEMPOTENCY: If this log is already SUCCESS, just redirect to success page
@@ -125,7 +134,7 @@ export class BkashController {
                 } catch (e) { }
 
                 logger.info(`bKash payment already successful for ID: ${paymentID}, redirecting to success.`);
-                return res.redirect(`${process.env.FRONTEND_URL}/payment/success?invoiceId=${invoiceId}&gateway=bkash&trxId=${trxID}`);
+                return res.redirect(`${frontendUrl}/payment/success?invoiceId=${invoiceId}&gateway=bkash&trxId=${trxID}`);
             }
 
             // Execute Payment
@@ -167,7 +176,7 @@ export class BkashController {
                 logger.info(`bKash payment success recorded for Invoice ${invoiceId}, TrxID: ${executeResult.trxID}`);
 
                 // Redirect to frontend success page
-                return res.redirect(`${process.env.FRONTEND_URL}/payment/success?invoiceId=${invoiceId}&gateway=bkash&trxId=${executeResult.trxID}`);
+                return res.redirect(`${frontendUrl}/payment/success?invoiceId=${invoiceId}&gateway=bkash&trxId=${executeResult.trxID}`);
             } catch (error: any) {
                 logger.error(`bKash execution failed for ${paymentID}:`, error);
 
@@ -179,11 +188,12 @@ export class BkashController {
                     }
                 });
 
-                return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?invoiceId=${invoiceId}&gateway=bkash&msg=${encodeURIComponent(error.message)}`);
+                return res.redirect(`${frontendUrl}/payment/failed?invoiceId=${invoiceId}&gateway=bkash&msg=${encodeURIComponent(error.message)}`);
             }
         } catch (error: any) {
             logger.error('bKash callback processing error:', error);
-            res.redirect(`${process.env.FRONTEND_URL}/payment/failed?msg=System%20Error`);
+            const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+            res.redirect(`${frontendUrl}/payment/failed?msg=System%20Error`);
         }
     }
 }

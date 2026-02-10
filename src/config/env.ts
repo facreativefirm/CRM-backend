@@ -12,7 +12,14 @@ dotenv.config({ path: path.join(process.cwd(), '..', '.env') });
  * to variables, which causes connection strings and secrets to fail.
  */
 const cleanEnv = () => {
-    const varsToClean = ['DATABASE_URL', 'ALLOWED_ORIGINS', 'JWT_SECRET', 'REDIS_URL'];
+    const varsToClean = [
+        'DATABASE_URL',
+        'ALLOWED_ORIGINS',
+        'JWT_SECRET',
+        'REDIS_URL',
+        'FRONTEND_URL',
+        'BACKEND_URL'
+    ];
 
     varsToClean.forEach(key => {
         if (process.env[key]) {

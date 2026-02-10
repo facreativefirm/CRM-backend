@@ -3144,3 +3144,6 @@ Foreign key constraint violated on the constraint: `orderitem_productId_fkey`
 2026-02-10 15:47:08:478 error: bKash log not found for paymentID: TR0011z2i988f1770716808335
 2026-02-10 16:23:25:2325 error: [AuthMiddleware] Auth failure: jwt malformed
 2026-02-10 16:23:35:2335 error: [AuthMiddleware] Auth failure: jwt malformed
+2026-02-10 17:34:20:3420 error: bKash log not found for paymentID: TR0011v2LdeQd1770723256099
+2026-02-10 17:34:36:3436 error: bKash log not found for paymentID: TR0011v2LdeQd1770723256099
+2026-02-10 17:46:17:4617 error: bKash log not found for paymentID: TR0011QqN2eLx1770723970275
