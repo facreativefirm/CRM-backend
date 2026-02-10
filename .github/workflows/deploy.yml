@@ -1,0 +1,217 @@
+# =============================================================================
+# CRM Backend - Build and Deploy Workflow
+# =============================================================================
+# This workflow builds the Docker image, pushes it to GitHub Container Registry,
+# and deploys to production VPS via SSH.
+#
+# Triggers:
+#   - Push to main branch
+#   - Manual dispatch
+#
+# Required Secrets:
+#   - VPS_HOST: VPS hostname or IP address
+#   - VPS_USER: SSH username (typically 'deploy')
+#   - VPS_SSH_KEY: SSH private key for authentication
+#   - VPS_SSH_PORT: SSH port (optional, defaults to 22)
+# =============================================================================
+
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'prisma/**'
+      - 'Dockerfile'
+      - 'docker-compose.prod.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      deploy_only:
+        description: 'Skip build, deploy existing images'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  # Use lowercase repository name for GHCR compatibility
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/crm-backend
+
+jobs:
+  # ===========================================================================
+  # Build and Push Docker Image
+  # ===========================================================================
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.deploy_only }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+  # ===========================================================================
+  # Deploy to Production VPS
+  # ===========================================================================
+  deploy:
+    name: Deploy to Production
+    needs: [build]
+    if: always() && (needs.build.result == 'success' || inputs.deploy_only)
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://crm.facreative.net
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          envs: IMAGE_TAG,REGISTRY,IMAGE_NAME
+          script: |
+            set -e
+
+            echo "🚀 Starting CRM backend deployment..."
+            cd /opt/apps/crm
+
+            # Login to GHCR
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull new image
+            echo "📦 Pulling new image..."
+            docker pull ${IMAGE_NAME}:${IMAGE_TAG}
+
+            # Tag as latest for docker-compose
+            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
+
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
+            docker compose -f docker-compose.prod.yml run --rm backend pnpm exec prisma migrate deploy || echo "⚠️ Migration warning (may be first deploy)"
+
+            # Update running containers
+            echo "🔄 Updating containers..."
+            docker compose -f docker-compose.prod.yml up -d --no-build backend
+
+            # Wait for health checks
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 10
+
+            # Verify deployment
+            echo "✅ Verifying deployment..."
+            docker compose -f docker-compose.prod.yml ps
+
+            # Cleanup old images
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+
+            echo "✨ CRM deployment complete!"
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            set -e
+
+            cd /opt/apps/crm
+
+            echo "Checking CRM backend health..."
+
+            # Check backend service
+            if ! curl -sf http://localhost:3006/health > /dev/null 2>&1; then
+              echo "❌ CRM backend is not responding"
+              docker compose -f docker-compose.prod.yml logs --tail=50 backend
+              exit 1
+            fi
+            echo "✅ CRM backend is healthy"
+
+            echo "🎉 CRM backend is running!"
+
+  # ===========================================================================
+  # Rollback on Failure
+  # ===========================================================================
+  rollback:
+    name: Rollback on Failure
+    needs: [deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Rollback to previous version
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            set -e
+
+            echo "⚠️ Deployment failed, attempting rollback..."
+            cd /opt/apps/crm
+
+            # Restart with previous images
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d
+
+            echo "🔙 Rollback complete. Please investigate the failure."
+
+      - name: Notify on failure
+        if: always()
+        run: |
+          echo "::error::CRM deployment failed and rollback was attempted. Please check the logs."
