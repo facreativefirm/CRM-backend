@@ -15,13 +15,18 @@ export const getSettings = async (req: Request, res: Response) => {
 export const updateSettings = async (req: Request, res: Response) => {
     const settings = req.body;
 
-    const updates = Object.keys(settings).map(key =>
-        prisma.systemSetting.upsert({
+    const updates = Object.keys(settings).map(key => {
+        let group = 'general';
+        if (key.startsWith('bkash')) group = 'BKASH';
+        else if (key.startsWith('nagad')) group = 'NAGAD';
+        else if (key.startsWith('smtp')) group = 'MAIL';
+
+        return prisma.systemSetting.upsert({
             where: { settingKey: key },
             update: { settingValue: settings[key] },
-            create: { settingKey: key, settingValue: settings[key], settingGroup: 'general' }
-        })
-    );
+            create: { settingKey: key, settingValue: settings[key], settingGroup: group }
+        });
+    });
 
     await Promise.all(updates);
 

@@ -28,7 +28,9 @@ import investorRoutes from './investor.routes';
 import guestSupportRoutes from './api/guestSupport.routes';
 import integrationRoutes from './api/integration.routes';
 import nagadRoutes from './api/nagad.routes';
+import bkashRoutes from './api/bkash.routes';
 import importExportRoutes from './api/importExport.routes';
+import promotionsRoutes from './api/promotions.routes';
 
 const router = Router();
 
@@ -62,7 +64,9 @@ router.use('/support-chat', guestSupportRoutes);
 router.use('/guest-support', guestSupportRoutes);
 router.use('/integration', integrationRoutes);
 router.use('/payments/nagad', nagadRoutes);
+router.use('/bkash', bkashRoutes);
 router.use('/import-export', importExportRoutes);
+router.use('/promotions', promotionsRoutes);
 
 export default router;
 

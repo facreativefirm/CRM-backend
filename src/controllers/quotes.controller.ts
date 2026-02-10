@@ -262,7 +262,9 @@ export const acceptQuote = async (req: AuthRequest, res: Response) => {
             const invoiceNumber = `INV-${date}-${random}`;
 
             // Calculate Tax
-            const taxAmount = quote.client.group?.taxExempt ? 0 : Number(quote.subtotal) * 0.05; // 5% example
+            const { getTaxRate } = await import('../services/settingsService');
+            const taxRate = await getTaxRate();
+            const taxAmount = quote.client.group?.taxExempt ? 0 : Number(quote.subtotal) * taxRate;
             const totalAmount = Number(quote.subtotal) + taxAmount;
 
             // 1. Prepare Invoice Items and Services/Domains

@@ -246,6 +246,25 @@ export const createOrder = async (input: CreateOrderInput) => {
             });
 
             if (product && product.productType !== 'DOMAIN') {
+                // Calculate recurring amount based on promotion recurrence
+                let recurringAmount = item.unitPrice; // Default to original unit price
+
+                // If there's a promotion and it's recurring, calculate the discounted recurring price
+                if (order.promoCode) {
+                    const promotion = await prisma.promotion.findUnique({ where: { code: order.promoCode } });
+                    if (promotion && promotion.recurrence && promotion.recurrence > 0) {
+                        if (promotion.type === 'percentage') {
+                            const discount = new Prisma.Decimal(promotion.value.toString()).div(100);
+                            recurringAmount = recurringAmount.mul(new Prisma.Decimal(1).sub(discount));
+                        } else if (promotion.type === 'fixed') {
+                            // Fixed discount on recurring amount might be tricky if it's per order total vs per item.
+                            // Usually, recurrences with fixed amounts are applied per item.
+                            recurringAmount = recurringAmount.sub(new Prisma.Decimal(promotion.value.toString()));
+                        }
+                        if (recurringAmount.lessThan(0)) recurringAmount = new Prisma.Decimal(0);
+                    }
+                }
+
                 await prisma.service.create({
                     data: {
                         clientId: order.clientId,
@@ -253,7 +272,7 @@ export const createOrder = async (input: CreateOrderInput) => {
                         orderId: order.id,
                         domain: item.domainName,
                         billingCycle: item.billingCycle,
-                        amount: item.totalPrice,
+                        amount: recurringAmount,
                         status: ServiceStatus.PENDING,
                         nextDueDate: new Date(),
                     }

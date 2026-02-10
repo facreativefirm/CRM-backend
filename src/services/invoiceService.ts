@@ -40,7 +40,7 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
 
     // 3. Calculate Totals from actual Order Items
     // Rely on the order.items values which were calculated by pricingService during order creation
-    let subtotal = new Prisma.Decimal(0);
+    let originalSubtotal = new Prisma.Decimal(0);
     const invoiceItems = order.items.flatMap((item: any) => {
         const productName = item.product?.name || `Product #${item.productId}`;
         const items = [];
@@ -54,7 +54,7 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
             serviceId: undefined
         };
         items.push(productItem);
-        subtotal = subtotal.add(productItem.totalAmount);
+        originalSubtotal = originalSubtotal.add(productItem.totalAmount);
 
         // Add setup fee as a separate line item if non-zero
         if (item.setupFee && Number(item.setupFee) > 0) {
@@ -66,15 +66,30 @@ export const createInvoiceFromOrder = async (orderId: number, tx?: Prisma.Transa
                 serviceId: undefined
             };
             items.push(setupFeeItem);
-            subtotal = subtotal.add(setupFeeItem.totalAmount);
+            originalSubtotal = originalSubtotal.add(setupFeeItem.totalAmount);
         }
 
         return items;
     });
 
+    // Calculate and apply discount if promo code was used
+    const discountedSubtotal = new Prisma.Decimal(order.totalAmount.toString());
+    const discountAmount = originalSubtotal.sub(discountedSubtotal);
+
+    if (discountAmount.greaterThan(0)) {
+        invoiceItems.push({
+            description: `Discount (Promo: ${order.promoCode})`,
+            quantity: 1,
+            unitPrice: discountAmount.mul(-1),
+            totalAmount: discountAmount.mul(-1),
+            serviceId: undefined
+        } as any);
+    }
+
     const currentTaxRate = await settingsService.getTaxRate();
-    const taxAmount = order.client.group?.taxExempt ? new Prisma.Decimal(0) : subtotal.mul(currentTaxRate);
-    const totalAmount = subtotal.add(taxAmount);
+    const taxAmount = order.client.group?.taxExempt ? new Prisma.Decimal(0) : discountedSubtotal.mul(currentTaxRate);
+    const totalAmount = discountedSubtotal.add(taxAmount);
+    const subtotal = originalSubtotal; // Keep the original sum as subtotal for display, the discount is a line item
 
     const invoice = await db.invoice.create({
         data: {
@@ -401,6 +416,8 @@ export const generateRecurringInvoices = async () => {
         }
     });
 
+    const currentTaxRate = await settingsService.getTaxRate();
+
     for (const service of dueServices) {
         // Skip if there's already an unpaid invoice for this service
         const existingInvoice = await prisma.invoice.findFirst({
@@ -415,8 +432,8 @@ export const generateRecurringInvoices = async () => {
 
         if (existingInvoice) continue;
 
-        const price = service.product.monthlyPrice;
-        const taxAmount = service.client.group?.taxExempt ? new Prisma.Decimal(0) : price.mul(0.05);
+        const price = service.amount;
+        const taxAmount = service.client.group?.taxExempt ? new Prisma.Decimal(0) : price.mul(currentTaxRate);
         const totalAmount = price.add(taxAmount);
 
         const invoice = await prisma.invoice.create({
@@ -470,7 +487,7 @@ export const generateRecurringInvoices = async () => {
     });
 
     for (const item of dueItems) {
-        const taxAmount = item.client.group?.taxExempt ? new Prisma.Decimal(0) : item.unitPrice.mul(item.quantity).mul(0.05);
+        const taxAmount = item.client.group?.taxExempt ? new Prisma.Decimal(0) : item.unitPrice.mul(item.quantity).mul(currentTaxRate);
         const subtotal = item.unitPrice.mul(item.quantity);
         const totalAmount = subtotal.add(taxAmount);
 
@@ -608,7 +625,8 @@ export const createRenewalInvoice = async (type: 'SERVICE' | 'DOMAIN', itemId: n
             include: { group: true, user: true }
         });
 
-        const taxAmount = client?.group?.taxExempt ? new Prisma.Decimal(0) : price!.mul(0.05);
+        const currentTaxRate = await settingsService.getTaxRate();
+        const taxAmount = client?.group?.taxExempt ? new Prisma.Decimal(0) : price!.mul(currentTaxRate);
         const totalAmount = price!.add(taxAmount);
 
         const invoice = await tx.invoice.create({

@@ -12,9 +12,10 @@ export const getSetting = async (key: string, defaultValue: string = ''): Promis
 };
 
 export const getTaxRate = async (): Promise<number> => {
+    // Default to 5% if not set, to match legacy behavior and ensure tax is applied
     const rateStr = await getSetting('taxRate', '0');
     const rate = parseFloat(rateStr);
-    return isNaN(rate) ? 0 : rate / 100;
+    return isNaN(rate) ? 0.05 : rate / 100;
 };
 
 export const getTaxName = async (): Promise<string> => {

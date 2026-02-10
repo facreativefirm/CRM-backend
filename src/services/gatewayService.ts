@@ -14,25 +14,28 @@ export class PaymentGatewayService {
     static async initBKashPayment(amount: number, invoiceId: string) {
         logger.info(`Initializing bKash payment for Invoice: ${invoiceId}, Amount: ${amount}`);
 
-        // Placeholder for bKash API credentials (from env/settings)
-        // const { app_key, app_secret, username, password } = getBkashConfig();
-
         try {
-            // Step 1: Grant Token
-            // Step 2: Create Payment
+            const bkashService = (await import('./bkash.service')).default;
+            const backendBaseUrl = process.env.BACKEND_URL || 'http://localhost:3006';
+            const callbackUrl = `${backendBaseUrl}/api/bkash/callback`;
 
-            // For production, this would call bKash production URLs
-            // return { bkashURL: 'https://sandbox.payment.bkash.com/...' };
+            logger.debug(`bKash Generated Callback URL (GatewayService): ${callbackUrl}`);
+
+            const result = await bkashService.createPayment({
+                amount,
+                invoiceId,
+                callbackUrl
+            });
 
             return {
                 status: 'success',
                 gateway: 'BKASH',
-                redirectURL: `https://mock-gateway.com/bkash/pay?invoice=${invoiceId}&amount=${amount}`,
-                paymentID: `BK-${Date.now()}`
+                redirectURL: result.bkashURL,
+                paymentID: result.paymentID
             };
-        } catch (error) {
+        } catch (error: any) {
             logger.error('bKash Initialization failed', error);
-            throw new AppError('bKash gateway unavailable', 503);
+            throw new AppError(error.message || 'bKash gateway unavailable', 503);
         }
     }
 
