@@ -11,6 +11,7 @@ import * as invoiceService from '../services/invoiceService';
 import { InvestorService } from '../services/investor.service';
 import { generateMoneyReceiptPDF } from '../services/pdfService';
 import * as settingsService from '../services/settingsService';
+import logger from '../utils/logger';
 
 /**
  * Currency Management
@@ -547,6 +548,195 @@ async function processRefundCompletion(refundId: number) {
     const originalTransaction = refund.transaction;
     const invoice = originalTransaction.invoice;
 
+    // ========================================
+    // NEW: bKash Refund API Integration
+    // ========================================
+    let bkashRefundResult: any = null;
+
+    if (originalTransaction.gateway === 'BKASH') {
+        try {
+            logger.info(`Processing bKash refund for transaction #${originalTransaction.id}`);
+
+            // Find the original bKash payment details from gateway log
+            // We search by trxID (originalTransaction.transactionId) inside the responseData 
+            // because gatewayLog for bKash is indexed by paymentID.
+            const gatewayLog = await prisma.gatewayLog.findFirst({
+                where: {
+                    gateway: 'BKASH',
+                    status: 'SUCCESS',
+                    responseData: {
+                        contains: originalTransaction.transactionId as string
+                    }
+                }
+            });
+
+            if (gatewayLog && gatewayLog.responseData) {
+                const responseData = JSON.parse(gatewayLog.responseData as string);
+                const paymentID = responseData.paymentID;
+                const trxID = responseData.trxID;
+
+                if (paymentID && trxID) {
+                    // Call bKash refund API
+                    const bkashService = (await import('../services/bkash.service')).default;
+
+                    bkashRefundResult = await bkashService.refundPayment({
+                        paymentID,
+                        amount: parseFloat(refund.amount.toString()),
+                        trxID,
+                        reason: refund.reason || 'Refund requested',
+                        sku: invoice.invoiceNumber
+                    });
+
+                    logger.info(`✅ bKash refund successful! Refund TrxID: ${bkashRefundResult.refundTrxID || bkashRefundResult.trxID}`);
+
+                    // TODO: Add gatewayRefundId and gatewayResponse fields to Refund model in schema
+                    // await prisma.refund.update({
+                    //     where: { id: refundId },
+                    //     data: {
+                    //         gatewayRefundId: bkashRefundResult.refundTrxID || bkashRefundResult.trxID,
+                    //         gatewayResponse: JSON.stringify(bkashRefundResult)
+                    //     }
+                    // });
+
+                    // Log the successful bKash refund
+                    await prisma.gatewayLog.create({
+                        data: {
+                            gateway: 'BKASH',
+                            transactionId: bkashRefundResult.refundTrxID || bkashRefundResult.trxID,
+                            status: 'SUCCESS',
+                            requestData: JSON.stringify({
+                                type: 'REFUND',
+                                originalPaymentID: paymentID,
+                                originalTrxID: trxID,
+                                refundAmount: refund.amount,
+                                reason: refund.reason
+                            }),
+                            responseData: JSON.stringify(bkashRefundResult)
+                        }
+                    });
+                } else {
+                    logger.warn(`⚠️  bKash payment details incomplete. PaymentID: ${paymentID}, TrxID: ${trxID}`);
+                }
+            } else {
+                logger.warn(`⚠️  No bKash gateway log found for transaction #${originalTransaction.id}`);
+            }
+        } catch (error: any) {
+            logger.error(`❌ bKash refund API failed for transaction #${originalTransaction.id}:`, error.message);
+            logger.warn('⚠️  Continuing with internal refund. Admin must process bKash refund manually via merchant portal.');
+
+            // Log the failure for admin review
+            await prisma.gatewayLog.create({
+                data: {
+                    gateway: 'BKASH',
+                    transactionId: `REFUND-FAILED-${Date.now()}`,
+                    status: 'FAILED',
+                    requestData: JSON.stringify({
+                        type: 'REFUND',
+                        transactionId: originalTransaction.id,
+                        amount: refund.amount,
+                        reason: refund.reason
+                    }),
+                    responseData: JSON.stringify({
+                        error: error.message,
+                        note: 'Manual refund required via bKash merchant portal'
+                    })
+                }
+            });
+        }
+    }
+    // ========================================
+    // End bKash Integration
+    // ========================================
+
+    // ========================================
+    // NEW: Nagad Refund API Integration
+    // ========================================
+    let nagadRefundResult: any = null;
+
+    if (originalTransaction.gateway === 'NAGAD_AUTO') {
+        try {
+            logger.info(`Processing Nagad refund for transaction #${originalTransaction.id}`);
+
+            // Find the original Nagad payment details from gateway log
+            const gatewayLog = await prisma.gatewayLog.findFirst({
+                where: {
+                    gateway: 'NAGAD_AUTO',
+                    transactionId: originalTransaction.transactionId as string,
+                    status: 'SUCCESS'
+                }
+            });
+
+            if (gatewayLog && gatewayLog.responseData) {
+                const responseData = JSON.parse(gatewayLog.responseData as string);
+
+                // For Nagad, we need paymentReferenceId and orderId
+                // These are usually in the verification result stored in responseData
+                const verificationResult = responseData.verificationResult || responseData;
+                const paymentRefId = originalTransaction.transactionId as string;
+                const nagadOrderId = verificationResult.orderId || verificationResult.nagadOrderId;
+
+                if (paymentRefId && nagadOrderId) {
+                    const nagadService = (await import('../services/nagad.service')).default;
+
+                    nagadRefundResult = await nagadService.refundPayment(
+                        paymentRefId,
+                        parseFloat(refund.amount.toString()),
+                        nagadOrderId,
+                        refund.reason || 'Refund requested'
+                    );
+
+                    logger.info(`✅ Nagad refund successful! Result: ${JSON.stringify(nagadRefundResult)}`);
+
+                    // Log the successful Nagad refund
+                    await prisma.gatewayLog.create({
+                        data: {
+                            gateway: 'NAGAD_AUTO',
+                            transactionId: `REF-${paymentRefId}`,
+                            status: 'SUCCESS',
+                            requestData: JSON.stringify({
+                                type: 'REFUND',
+                                originalPaymentRefId: paymentRefId,
+                                nagadOrderId: nagadOrderId,
+                                refundAmount: refund.amount,
+                                reason: refund.reason
+                            }),
+                            responseData: JSON.stringify(nagadRefundResult)
+                        }
+                    });
+                } else {
+                    logger.warn(`⚠️  Nagad payment details incomplete. RefId: ${paymentRefId}, nagadOrderId: ${nagadOrderId}`);
+                }
+            } else {
+                logger.warn(`⚠️  No Nagad gateway log found for transaction #${originalTransaction.id}`);
+            }
+        } catch (error: any) {
+            logger.error(`❌ Nagad refund API failed for transaction #${originalTransaction.id}:`, error.message);
+            logger.warn('⚠️  Continuing with internal refund. Admin must process Nagad refund manually.');
+
+            // Log the failure
+            await prisma.gatewayLog.create({
+                data: {
+                    gateway: 'NAGAD_AUTO',
+                    transactionId: `REFUND-FAILED-${Date.now()}`,
+                    status: 'FAILED',
+                    requestData: JSON.stringify({
+                        type: 'REFUND',
+                        transactionId: originalTransaction.id,
+                        amount: refund.amount,
+                        reason: refund.reason
+                    }),
+                    responseData: JSON.stringify({
+                        error: error.message,
+                        note: 'Manual refund required'
+                    })
+                }
+            });
+        }
+    }
+    // ========================================
+    // End Nagad Integration
+    // ========================================
+
     const newAmountPaid = (invoice.amountPaid || new Prisma.Decimal(0)).sub(refund.amount);
     // Determine new invoice status
     let newStatus = invoice.status;
@@ -560,11 +750,15 @@ async function processRefundCompletion(refundId: number) {
         prisma.transaction.create({
             data: {
                 invoiceId: invoice.id,
-                gateway: 'Internal Refund',
+                gateway: originalTransaction.gateway === 'BKASH' && bkashRefundResult
+                    ? 'BKASH Refund'
+                    : 'Internal Refund',
                 amount: refund.amount.negated(),
                 status: 'SUCCESS',
-                adminNotes: `Refund for Transaction #${originalTransaction.transactionId || originalTransaction.id}. Reason: ${refund.reason}`,
-                transactionId: `REF-${Date.now()}`
+                adminNotes: originalTransaction.gateway === 'BKASH' && bkashRefundResult
+                    ? `bKash refund processed. Refund TrxID: ${bkashRefundResult.refundTrxID || bkashRefundResult.trxID}. Original Transaction #${originalTransaction.transactionId || originalTransaction.id}. Reason: ${refund.reason}`
+                    : `Refund for Transaction #${originalTransaction.transactionId || originalTransaction.id}. Reason: ${refund.reason}`,
+                transactionId: bkashRefundResult?.refundTrxID || `REF-${Date.now()}`
             }
         }),
         prisma.invoice.update({
@@ -597,7 +791,7 @@ async function processRefundCompletion(refundId: number) {
                     client.user.id,
                     'SUCCESS',
                     'Refund Processed',
-                    `Your refund of ${refund.amount} for invoice #${invoice.invoiceNumber} has been processed.`,
+                    `Your refund of ${refund.amount} for invoice #${invoice.invoiceNumber} has been processed.${originalTransaction.gateway === 'BKASH' && bkashRefundResult ? ' Money has been credited to your bKash wallet.' : ''}`,
                     `/client/billing`
                 );
             }

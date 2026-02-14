@@ -342,6 +342,127 @@ export class BkashService {
             throw new Error(error.response?.data?.statusMessage || error.response?.data?.errorMessage || 'bKash query failed');
         }
     }
+
+    /**
+     * Refund a bKash payment
+     * 
+     * Can refund a transaction which is no older than 15 days
+     * 
+     * @param data - Refund request data
+     * @returns Refund response from bKash
+     * 
+     * @see https://developer.bka.sh/reference#post_checkout-payment-refund
+     */
+    async refundPayment(data: {
+        paymentID: string;
+        amount: number;
+        trxID: string;
+        reason: string;
+        sku?: string;
+    }) {
+        const credentials = await this.getCredentials();
+        const token = await this.getToken();
+
+        try {
+            logger.info(`Initiating bKash refund for Payment ID: ${data.paymentID}, Amount: ${data.amount}`);
+
+            const payload: any = {
+                paymentID: data.paymentID,
+                amount: data.amount.toFixed(2),
+                trxID: data.trxID,
+                sku: data.sku || 'N/A',
+                reason: data.reason || 'Refund requested'
+            };
+
+            const response = await axios.post(
+                `${credentials.baseUrl}payment/refund`,
+                payload,
+                {
+                    headers: {
+                        'Authorization': token,
+                        'X-APP-Key': credentials.appKey,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            // bKash returns 200 even for some failures, check statusCode or transactionStatus
+            if (response.data) {
+                // Check for tokenized response
+                if (response.data.statusCode === '0000' || response.data.statusMessage === 'Successful') {
+                    logger.info(`bKash refund successful: ${response.data.refundTrxID || response.data.trxID}`);
+                    return response.data;
+                }
+                // Check for checkout response
+                else if (response.data.transactionStatus === 'Completed' && response.data.refundTrxID) {
+                    logger.info(`bKash refund successful: ${response.data.refundTrxID}`);
+                    return response.data;
+                }
+                // Error response
+                else {
+                    const errorMsg = response.data.statusMessage || response.data.errorMessage || 'Refund failed';
+                    logger.error('bKash Refund Failed:', response.data);
+                    throw new Error(errorMsg);
+                }
+            } else {
+                throw new Error('Empty response from bKash refund API');
+            }
+        } catch (error: any) {
+            logger.error('bKash Refund Error:', error.response?.data || error.message);
+            throw new Error(
+                error.response?.data?.statusMessage ||
+                error.response?.data?.errorMessage ||
+                error.message ||
+                'bKash refund failed'
+            );
+        }
+    }
+
+    /**
+     * Query the status of a refunded transaction
+     * 
+     * Get status if the transaction is already refunded, otherwise invalid payment id will return
+     * 
+     * @param paymentID - bKash payment ID
+     * @param trxID - Original transaction ID
+     * @returns Refund status response from bKash
+     */
+    async refundStatus(paymentID: string, trxID: string) {
+        const credentials = await this.getCredentials();
+        const token = await this.getToken();
+
+        try {
+            logger.info(`Querying bKash refund status for Payment ID: ${paymentID}`);
+
+            const payload = {
+                paymentID,
+                trxID
+            };
+
+            const response = await axios.post(
+                `${credentials.baseUrl}payment/refund`,
+                payload,
+                {
+                    headers: {
+                        'Authorization': token,
+                        'X-APP-Key': credentials.appKey,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            return response.data;
+        } catch (error: any) {
+            logger.error('bKash Refund Status Query Error:', error.response?.data || error.message);
+            throw new Error(
+                error.response?.data?.statusMessage ||
+                error.response?.data?.errorMessage ||
+                'bKash refund status query failed'
+            );
+        }
+    }
 }
 
 export default new BkashService();

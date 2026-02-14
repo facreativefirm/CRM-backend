@@ -334,20 +334,81 @@ export class NagadService {
     }
 
     /**
+     * Refund a Nagad payment
+     * @param paymentReferenceId The original payment reference ID
+     * @param amount The amount to refund
+     * @param orderId The original Nagad order ID
+     * @param reason The reason for the refund
+     */
+    async refundPayment(paymentReferenceId: string, amount: number, orderId: string, reason: string = 'Service Refund') {
+        const { merchantId, publicKey, privateKey, baseUrl } = await this.getCredentials();
+        const timestamp = getBangladeshDateTime();
+
+        const cleanMerchantId = merchantId.replace(/[^a-zA-Z0-9]/g, '');
+
+        // Sensitive data for refund
+        const refundSensitiveData = {
+            merchantId: cleanMerchantId,
+            orderId: orderId,
+            paymentReferenceId: paymentReferenceId,
+            amount: amount.toFixed(2),
+            reason: reason
+        };
+
+        // Prepare request payload
+        const postData = {
+            dateTime: timestamp,
+            sensitiveData: cryptoService.encryptWithPublicKey(JSON.stringify(refundSensitiveData), publicKey),
+            signature: cryptoService.signData(JSON.stringify(refundSensitiveData), privateKey)
+        };
+
+        try {
+            const requestUrl = `${baseUrl}check-out/refund/merchant/${cleanMerchantId}/${paymentReferenceId}`;
+
+            logger.info(`Initiating Nagad refund for Ref: ${paymentReferenceId}, Amount: ${amount}`);
+
+            const response = await axios.post(
+                requestUrl,
+                postData,
+                {
+                    headers: this.getHeaders('103.140.205.216'),
+                    timeout: 30000
+                }
+            );
+
+            // VALIDATION: Nagad API should return JSON. If it's HTML, it's a firewall rejection.
+            if (typeof response.data === 'string' && response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<html')) {
+                logger.error('Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)');
+                throw new Error('Nagad API Error: Request rejected by firewall (Check headers/IP)');
+            }
+
+            // VALIDATION: Check Nagad status codes
+            const resData = response.data;
+            if (resData.statusCode && resData.statusCode !== '000' && resData.statusCode !== '0') {
+                logger.error(`Nagad refund API returned error status: ${resData.statusCode} - ${resData.message}`);
+                throw new Error(`Nagad API Error: ${resData.message} (${resData.statusCode})`);
+            }
+
+            logger.info('Nagad refund request successful');
+            return response.data;
+        } catch (error: any) {
+            const errorData = error.response?.data ? JSON.stringify(error.response.data) : (typeof error.message === 'string' ? error.message : 'Unknown error');
+            logger.error(`Nagad refund failed: ${errorData}`);
+            throw new Error(error.message || `Nagad refund failed: ${errorData}`);
+        }
+    }
+
+    /**
      * Get headers required by Nagad API
      * Based on official plugin
      */
     private getHeaders(clientIp: string) {
-        const frontendUrl = process.env.FRONTEND_URL || 'https://clientarea.facreative.biz';
-
         return {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json;charset=UTF-8',
             'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Origin': frontendUrl,
-            'Referer': `${frontendUrl}/`,
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'X-KM-Api-Version': 'v-0.2.0',
-            'X-KM-IP-V4': clientIp, // CRITICAL: Must be actual client IP
+            'X-KM-IP-V4': clientIp,
             'X-KM-Client-Type': 'PC_WEB'
         };
     }

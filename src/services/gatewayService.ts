@@ -16,13 +16,18 @@ export class PaymentGatewayService {
 
         try {
             const bkashService = (await import('./bkash.service')).default;
-            const backendBaseUrl = (process.env.BACKEND_URL || '').replace(/\/$/, '');
-            if (!backendBaseUrl) {
-                logger.error('BACKEND_URL is missing! Payment callback will fail.');
-            }
-            const callbackUrl = `${backendBaseUrl}/api/bkash/callback`;
+            const envBackendUrl = process.env.BACKEND_URL;
 
-            logger.debug(`bKash Generated Callback URL (GatewayService): ${callbackUrl}`);
+            // In a service, we don't have 'req', so we rely on .env
+            const backendBaseUrl = (envBackendUrl || '').replace(/\/$/, '');
+
+            if (!backendBaseUrl) {
+                logger.warn('BACKEND_URL is missing in environment! bKash callback may be invalid unless initiation happened via controller with request context.');
+            }
+
+            const callbackUrl = backendBaseUrl ? `${backendBaseUrl}/api/bkash/callback` : '/api/bkash/callback';
+
+            logger.debug(`bKash Generated Callback URL: ${callbackUrl}`);
 
             const result = await bkashService.createPayment({
                 amount,

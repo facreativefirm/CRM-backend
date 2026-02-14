@@ -3147,3 +3147,25 @@ Foreign key constraint violated on the constraint: `orderitem_productId_fkey`
 2026-02-10 17:34:20:3420 error: bKash log not found for paymentID: TR0011v2LdeQd1770723256099
 2026-02-10 17:34:36:3436 error: bKash log not found for paymentID: TR0011v2LdeQd1770723256099
 2026-02-10 17:46:17:4617 error: bKash log not found for paymentID: TR0011QqN2eLx1770723970275
+2026-02-14 10:42:05:425 error: [Auth] Unexpected failure: 
+Invalid `prisma.session.findUnique()` invocation:
+
+
+
+2026-02-14 10:42:05:425 error: [Auth] Unexpected failure: 
+Invalid `prisma.session.findUnique()` invocation:
+
+
+
+2026-02-14 12:38:23:3823 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
+2026-02-14 12:38:23:3823 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
+2026-02-14 12:39:14:3914 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
+2026-02-14 12:39:14:3914 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
+2026-02-14 12:41:43:4143 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
+2026-02-14 12:41:43:4143 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
+2026-02-14 12:43:43:4343 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
+2026-02-14 12:43:43:4343 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
+2026-02-14 12:46:04:464 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
+2026-02-14 12:46:04:464 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
+2026-02-14 12:49:27:4927 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
+2026-02-14 12:49:27:4927 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)

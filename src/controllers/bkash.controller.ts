@@ -31,19 +31,24 @@ export class BkashController {
                 throw new AppError('Invoice is already paid', 400);
             }
 
-            // Get frontend URL for callback strictly from Environment
-            const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+            // Base URLs from Environment or Request
+            const envFrontendUrl = process.env.FRONTEND_URL;
+            const envBackendUrl = process.env.BACKEND_URL;
+
+            // Determine Frontend URL (where to redirect user after processing)
+            // Priority: .env > Origin Header > Referer Header
+            const frontendUrl = (envFrontendUrl || req.headers.origin || req.headers.referer || '').toString().replace(/\/$/, '');
 
             if (!frontendUrl) {
-                logger.error('FRONTEND_URL is not defined in environment variables! Redirections may fail.');
+                logger.error('CRITICAL: Frontend URL could not be determined. Redirects will fail.');
             }
 
-            // bKash callback should point to a backend route that confirms payment
-            // Use the current request host if BACKEND_URL is missing, ensuring no localhost fallbacks
-            const backendBaseUrl = (process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+            // Determine Backend URL (where bKash should send its callback)
+            // Priority: .env > Current Request URL
+            const backendBaseUrl = (envBackendUrl || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
             const callbackUrl = `${backendBaseUrl}/api/bkash/callback`;
 
-            logger.debug(`bKash Generated Callback URL: ${callbackUrl}`);
+            logger.info(`bKash Initiation - Frontend: ${frontendUrl}, Callback: ${callbackUrl}`);
 
             // Initialize payment with bKash
             const bkashResponse = await bkashService.createPayment({
@@ -97,8 +102,14 @@ export class BkashController {
 
             logger.info(`bKash callback received for ID: ${paymentID}, status: ${status}`);
 
-            // Get frontend URL for redirects - remove trailing slash for consistency
-            const frontendUrl = (process.env.FRONTEND_URL || 'https://clientarea.facreative.biz').replace(/\/$/, '');
+            // Determine frontend URL for redirects
+            // In a callback, we don't have an Origin header from the frontend, 
+            // so we rely on .env or the Referer if available.
+            const frontendUrl = (process.env.FRONTEND_URL || req.headers.referer || '').replace(/\/$/, '');
+
+            if (!frontendUrl) {
+                logger.warn('Frontend URL missing in callback. Fallback might be inaccurate.');
+            }
 
             if (!paymentID) {
                 return res.redirect(`${frontendUrl}/payment/failed?msg=Missing%20PaymentID`);
@@ -193,7 +204,11 @@ export class BkashController {
         } catch (error: any) {
             logger.error('bKash callback processing error:', error);
             const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
-            res.redirect(`${frontendUrl}/payment/failed?msg=System%20Error`);
+            if (frontendUrl) {
+                res.redirect(`${frontendUrl}/payment/failed?msg=System%20Error`);
+            } else {
+                res.status(500).send('System Error: Could not determine redirect URL.');
+            }
         }
     }
 }
