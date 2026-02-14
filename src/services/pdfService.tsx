@@ -1,5 +1,11 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, renderToBuffer, Image } from '@react-pdf/renderer';
+import path from 'path';
+import fs from 'fs';
+
+const LOGO_PATH = path.join(process.cwd(), '../frontend/public/Facreativefirmltd.png');
+// Fallback if file doesn't exist (optional, but good practice)
+const logoSrc = fs.existsSync(LOGO_PATH) ? LOGO_PATH : undefined;
 
 // Define styles for the PDF (Matching the frontend for consistency)
 const styles = StyleSheet.create({
@@ -175,6 +181,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, appName, tax
         <Page size="A4" style={styles.page}>
             <View style={styles.header}>
                 <View style={styles.companyInfo}>
+                    {logoSrc && <Image src={logoSrc} style={{ width: 40, height: 40, marginBottom: 5 }} />}
                     <Text style={styles.companyName}>{appName}</Text>
                     <View style={styles.companyDetails}>
                         <Text>123 Hosting Street</Text>
@@ -295,6 +302,7 @@ const MoneyReceiptDocument = ({ transaction, invoice, appName, taxName, currency
             {/* Header Section */}
             <View style={styles.header}>
                 <View style={styles.companyInfo}>
+                    {logoSrc && <Image src={logoSrc} style={{ width: 40, height: 40, marginBottom: 5 }} />}
                     <Text style={styles.companyName}>{appName}</Text>
                     <View style={styles.companyDetails}>
                         <Text>Professional Hosting & Domain Services</Text>

@@ -11,30 +11,76 @@ import { WebhookService } from '../services/webhook.service';
  */
 export const getClients = async (req: AuthRequest, res: Response) => {
     const isReseller = req.user?.userType === UserType.RESELLER;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string;
+    const skip = (page - 1) * limit;
 
-    const clients = await prisma.client.findMany({
-        where: {
-            ...(isReseller ? { resellerId: req.user?.id } : {}),
-        },
-        include: {
-            user: {
-                select: {
-                    username: true,
-                    email: true,
-                    firstName: true,
-                    lastName: true,
-                    status: true,
+    const whereClause: any = {
+        ...(isReseller ? { resellerId: req.user?.id } : {}),
+    };
+
+    if (search) {
+        whereClause.OR = [
+            { companyName: { contains: search, mode: 'insensitive' } },
+            {
+                user: {
+                    OR: [
+                        { firstName: { contains: search, mode: 'insensitive' } },
+                        { lastName: { contains: search, mode: 'insensitive' } },
+                        { email: { contains: search, mode: 'insensitive' } },
+                        { username: { contains: search, mode: 'insensitive' } }
+                    ]
                 }
             },
-            group: true,
-        },
-        orderBy: { createdAt: 'desc' },
-    });
+            {
+                contacts: {
+                    some: {
+                        OR: [
+                            { firstName: { contains: search, mode: 'insensitive' } },
+                            { lastName: { contains: search, mode: 'insensitive' } },
+                            { email: { contains: search, mode: 'insensitive' } }
+                        ]
+                    }
+                }
+            }
+        ];
+    }
+
+    const [total, clients] = await Promise.all([
+        prisma.client.count({ where: whereClause }),
+        prisma.client.findMany({
+            where: whereClause,
+            include: {
+                user: {
+                    select: {
+                        username: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        status: true,
+                    }
+                },
+                group: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit
+        })
+    ]);
 
     res.status(200).json({
         status: 'success',
         results: clients.length,
-        data: { clients },
+        data: {
+            clients,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        },
     });
 };
 
