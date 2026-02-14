@@ -38,6 +38,10 @@ export const register = async (req: Request, res: Response) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Check if this is the first user
+    const userCount = await prisma.user.count();
+    const isFirstUser = userCount === 0;
+
     let user;
     if (userToUpdate) {
         // 1. Migrate Guest to Full Client
@@ -50,7 +54,7 @@ export const register = async (req: Request, res: Response) => {
                 lastName,
                 phoneNumber,
                 whatsAppNumber,
-                userType: (userType as UserType) || UserType.CLIENT,
+                userType: isFirstUser ? UserType.SUPER_ADMIN : ((userType as UserType) || UserType.CLIENT),
                 status: UserStatus.ACTIVE,
                 client: {
                     update: {
@@ -62,24 +66,41 @@ export const register = async (req: Request, res: Response) => {
         });
     } else {
         // 2. Standard Registration
-        user = await prisma.user.create({
-            data: {
-                username,
-                email,
-                passwordHash,
-                firstName,
-                lastName,
-                phoneNumber,
-                whatsAppNumber,
-                userType: (userType as UserType) || UserType.CLIENT,
-                status: UserStatus.ACTIVE,
-                client: {
-                    create: {
-                        resellerId: resellerId ? parseInt(resellerId.toString()) : null
+        // If first user, make SUPER_ADMIN and skip client record
+        if (isFirstUser) {
+            user = await prisma.user.create({
+                data: {
+                    username,
+                    email,
+                    passwordHash,
+                    firstName,
+                    lastName,
+                    phoneNumber,
+                    whatsAppNumber,
+                    userType: UserType.SUPER_ADMIN,
+                    status: UserStatus.ACTIVE
+                }
+            });
+        } else {
+            user = await prisma.user.create({
+                data: {
+                    username,
+                    email,
+                    passwordHash,
+                    firstName,
+                    lastName,
+                    phoneNumber,
+                    whatsAppNumber,
+                    userType: (userType as UserType) || UserType.CLIENT,
+                    status: UserStatus.ACTIVE,
+                    client: {
+                        create: {
+                            resellerId: resellerId ? parseInt(resellerId.toString()) : null
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     const newUser = user;
