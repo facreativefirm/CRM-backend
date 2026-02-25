@@ -3169,3 +3169,45 @@ Invalid `prisma.session.findUnique()` invocation:
 2026-02-14 12:46:04:464 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
 2026-02-14 12:49:27:4927 error: Nagad refund failed: Received HTML response (Request likely rejected by Nagad firewall)
 2026-02-14 12:49:27:4927 error: Nagad refund failed: Nagad API Error: Request rejected by firewall (Check headers/IP)
+2026-02-23 11:10:00:100 error: Error in webhook retry worker: 
+Invalid `prisma.integrationQueue.findMany()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63
+
+  45 const { WebhookService } = await import('./webhook.service');
+  46 
+  47 try {
+→ 48     const pendingJobs = await prisma.integrationQueue.findMany(
+
+2026-02-23 11:12:45:1245 error: Unhandled Error: 
+Invalid `prisma.user.findFirst()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\controllers\auth.controller.ts:175:36
+
+  172     throw new AppError('Please provide email/username and password', 400);
+  173 }
+  174 
+→ 175 const user = await prisma.user.findFirst(
+
+2026-02-23 11:12:45:1245 error: PrismaClientKnownRequestError: 
+Invalid `prisma.user.findFirst()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\controllers\auth.controller.ts:175:36
+
+  172     throw new AppError('Please provide email/username and password', 400);
+  173 }
+  174 
+→ 175 const user = await prisma.user.findFirst(
+
+    at Vr.handleRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (E:\Naimur Sharon\WHMCS\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24)
+    at async login (E:\Naimur Sharon\WHMCS\backend\src\controllers\auth.controller.ts:175:18)
+2026-02-25 09:56:43:5643 error: [Socket] Critical Auth Error: 
+Invalid `prisma.session.findUnique()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\services\socketService.ts:51:54
+
+  48     });
+  49 } catch (jwtErr) {
+  50     // 2. If JWT fails, check for a valid DB Session (for Guests)
+→ 51     const session = await prisma.session.findUnique(
+

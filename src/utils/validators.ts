@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserType, UserStatus, ContactType, ClientStatus, ServiceStatus } from '@prisma/client';
+import { UserType, UserStatus, ContactType, ClientStatus, ServiceStatus, ProductType, PricingModel } from '@prisma/client';
 
 // Auth Schemas
 export const registerSchema = z.object({
@@ -172,8 +172,8 @@ export const productSchema = z.object({
         name: z.string().min(1),
         slug: z.string().min(1),
         serviceId: z.number(),
-        productType: z.any(), // Match ProductType enum
-        pricingModel: z.any(), // Match PricingModel
+        productType: z.nativeEnum(ProductType),
+        pricingModel: z.nativeEnum(PricingModel),
         description: z.string().optional(),
         features: z.any().optional(),
         setupFee: z.number().nullable().optional().or(z.literal('')).transform(val => (val === '' || val === null) ? 0 : val),

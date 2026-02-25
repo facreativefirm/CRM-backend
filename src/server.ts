@@ -1,3 +1,4 @@
+// Triggering nodemon restart to pick up new Prisma Client
 import './config/env';
 import express from 'express';
 import http from 'http';
