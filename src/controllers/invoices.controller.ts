@@ -453,6 +453,105 @@ export const updateInvoiceStatus = async (req: AuthRequest, res: Response) => {
 };
 
 /**
+ * Apply Coupon to an invoice
+ */
+export const applyCoupon = async (req: AuthRequest, res: Response) => {
+    try {
+        const invoiceId = parseInt(req.params.id as string);
+        const { promoCode } = req.body;
+
+        if (isNaN(invoiceId)) throw new AppError('Invalid invoice ID', 400);
+        if (!promoCode) throw new AppError('Promotion code is required', 400);
+
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { items: true }
+        });
+
+        if (!invoice) throw new AppError('Invoice not found', 404);
+
+        // Authorization check for client vs admin
+        if (req.user?.userType === UserType.CLIENT) {
+            const userClient = await prisma.client.findFirst({ where: { userId: req.user.id } });
+            if (invoice.clientId !== userClient?.id) throw new AppError('Not authorized to access this invoice', 403);
+        }
+
+        if (invoice.status === 'PAID') throw new AppError('Cannot apply coupon to a paid invoice', 400);
+
+        // Check if a promotion is already applied via description check
+        const alreadyHasDiscount = invoice.items.some(item => item.description.toLowerCase().includes('discount'));
+        if (alreadyHasDiscount) {
+            throw new AppError('A discount is already applied to this invoice', 400);
+        }
+
+        const promotion = await prisma.promotion.findUnique({
+            where: { code: promoCode }
+        });
+
+        if (!promotion) throw new AppError('Invalid promotion code', 404);
+
+        const now = new Date();
+        if (promotion.validFrom > now) throw new AppError('Promotion is not active yet', 400);
+        if (promotion.validUntil && promotion.validUntil < now) throw new AppError('Promotion has expired', 400);
+        if (promotion.usageLimit && promotion.usedCount >= promotion.usageLimit) throw new AppError('Promotion usage limit reached', 400);
+
+        let discountAmount = new Prisma.Decimal(0);
+        if (promotion.type === 'PERCENTAGE') {
+            discountAmount = invoice.subtotal.mul(promotion.value).div(100);
+        } else if (promotion.type === 'FIXED') {
+            discountAmount = promotion.value;
+        }
+
+        if (discountAmount.gt(invoice.totalAmount)) {
+            discountAmount = invoice.totalAmount; // Cap discount at total
+        }
+
+        if (discountAmount.lte(0)) {
+            throw new AppError('Discount amount is invalid or zero', 400);
+        }
+
+        // Add discount as a negative item
+        await prisma.invoiceItem.create({
+            data: {
+                invoiceId: invoice.id,
+                description: `Discount (${promotion.code})`,
+                quantity: 1,
+                unitPrice: discountAmount.mul(-1),
+                taxRate: 0,
+                totalAmount: discountAmount.mul(-1)
+            }
+        });
+
+        const newSubtotal = invoice.subtotal.sub(discountAmount);
+        const newTotal = invoice.totalAmount.sub(discountAmount);
+
+        await prisma.promotion.update({
+            where: { id: promotion.id },
+            data: { usedCount: { increment: 1 } }
+        });
+
+        const updatedInvoice = await prisma.invoice.update({
+            where: { id: invoice.id },
+            data: {
+                subtotal: newSubtotal,
+                totalAmount: newTotal
+            },
+            include: { items: true, client: { include: { user: true } } }
+        });
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Promotion applied successfully',
+            data: { invoice: updatedInvoice }
+        });
+
+    } catch (error: any) {
+        console.error('[ApplyCoupon Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
  * Admin: Add Manual Payment Transaction
  */
 export const addAdminPayment = async (req: AuthRequest, res: Response) => {

@@ -22,6 +22,9 @@ router.post('/manual-payment', invoicesController.submitManualPayment);
 
 router.post('/callback', invoicesController.handlePaymentCallback);
 
+// Apply Coupon
+router.post('/:id/apply-coupon', restrictTo('ADMIN', 'SUPER_ADMIN', 'CLIENT', 'RESELLER' as any), invoicesController.applyCoupon);
+
 // Admin automation
 router.post('/generate-due', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.generateDueInvoices);
 
