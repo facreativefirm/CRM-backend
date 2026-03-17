@@ -8,13 +8,14 @@ echo "🗄️ Running database migrations..."
 if ! pnpm exec prisma migrate deploy 2>&1; then
   echo "⚠️ Migration failed — syncing schema and baselining..."
 
-  # First, push any missing tables/columns to the database
+  # Push any missing tables/columns to the database
   echo "📐 Syncing database schema (creating missing tables)..."
-  pnpm exec prisma db push --skip-generate
+  pnpm exec prisma db push
 
-  # Then mark all existing migrations as already applied
+  # Roll back any failed migrations, then mark all as applied
   for migration in $(ls prisma/migrations/ | grep -v migration_lock); do
-    echo "  Marking $migration as applied..."
+    echo "  Resolving $migration..."
+    pnpm exec prisma migrate resolve --rolled-back "$migration" 2>/dev/null || true
     pnpm exec prisma migrate resolve --applied "$migration"
   done
 
