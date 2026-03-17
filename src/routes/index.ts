@@ -31,6 +31,7 @@ import nagadRoutes from './api/nagad.routes';
 import bkashRoutes from './api/bkash.routes';
 import importExportRoutes from './api/importExport.routes';
 import promotionsRoutes from './api/promotions.routes';
+import paymentMethodsRoutes from './api/paymentMethods.routes';
 
 const router = Router();
 
@@ -67,6 +68,7 @@ router.use('/payments/nagad', nagadRoutes);
 router.use('/bkash', bkashRoutes);
 router.use('/import-export', importExportRoutes);
 router.use('/promotions', promotionsRoutes);
+router.use('/payment-methods', paymentMethodsRoutes);
 
 export default router;
 

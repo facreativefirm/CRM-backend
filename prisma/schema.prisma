@@ -18,17 +18,17 @@ model Client {
   creditBalance        Decimal                  @default(0.00) @db.Decimal(10, 2)
   status               ClientStatus             @default(ACTIVE)
   clientSince          DateTime                 @default(now())
-  notes                String?                  @db.Text
+  notes                String?
   language             String                   @default("en")
   groupId              Int?
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
   guestIpAddress       String?
   isGuest              Boolean                  @default(false)
-  erpMetadata          String?                  @db.Text
+  erpMetadata          String?
   externalId           String?                  @unique
   lastSyncAt           DateTime?
-  syncError            String?                  @db.Text
+  syncError            String?
   syncStatus           SyncStatus               @default(PENDING)
   affiliate            Affiliate?
   referredAffiliates   AffiliateReferral[]      @relation("ReferredClients")
@@ -53,7 +53,7 @@ model Client {
   @@index([companyName], map: "Client_companyName_idx")
   @@index([resellerId], map: "Client_resellerId_idx")
   @@index([status], map: "Client_status_idx")
-  @@index([groupId], map: "client_groupId_idx")
+  @@index([groupId])
   @@map("client")
 }
 
@@ -84,7 +84,7 @@ model ClientCustomFieldValue {
   id         Int         @id @default(autoincrement())
   clientId   Int
   fieldId    Int
-  fieldValue String      @db.Text
+  fieldValue String
   client     Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   field      CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
@@ -100,7 +100,7 @@ model ClientGroup {
   groupColor         String?
   discountPercentage Decimal  @default(0.00) @db.Decimal(5, 2)
   taxExempt          Boolean  @default(false)
-  settings           String?  @db.Text
+  settings           String?
   createdAt          DateTime @default(now())
   clients            Client[]
 
@@ -192,7 +192,7 @@ model BillableItem {
 model CalendarEvent {
   id           Int       @id @default(autoincrement())
   title        String
-  description  String?   @db.Text
+  description  String?
   startDate    DateTime
   endDate      DateTime?
   allDay       Boolean   @default(false)
@@ -213,7 +213,7 @@ model CancellationRequest {
   id          Int       @id @default(autoincrement())
   clientId    Int
   serviceId   Int
-  reason      String    @db.Text
+  reason      String
   type        String
   status      String    @default("PENDING")
   requestDate DateTime  @default(now())
@@ -232,7 +232,7 @@ model CustomField {
   id          Int                      @id @default(autoincrement())
   fieldName   String
   fieldType   String
-  optionsJson String?                  @db.Text
+  optionsJson String?
   required    Boolean                  @default(false)
   adminOnly   Boolean                  @default(false)
   showInvoice Boolean                  @default(false)
@@ -276,10 +276,10 @@ model Domain {
   dnsManagement             Boolean                    @default(false)
   emailForwarding           Boolean                    @default(false)
   idProtection              Boolean                    @default(false)
-  nameservers               String?                    @db.Text
-  eppCode                   String?
+  nameservers               String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
+  eppCode                   String?
   client                    Client                     @relation(fields: [clientId], references: [id])
   expiryNotificationRecords ExpiryNotificationRecord[]
   invoiceItems              InvoiceItem[]
@@ -325,7 +325,6 @@ model DomainTLD {
   @@map("domaintld")
 }
 
-
 model Invoice {
   id                  Int                  @id @default(autoincrement())
   invoiceNumber       String               @unique(map: "Invoice_invoiceNumber_key")
@@ -343,13 +342,13 @@ model Invoice {
   orderId             Int?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  adminNotes          String?              @db.Text
-  notes               String?              @db.Text
+  adminNotes          String?
+  notes               String?
   deletedAt           DateTime?
   isDeleted           Boolean              @default(false)
   externalId          String?              @unique
   lastSyncAt          DateTime?
-  syncError           String?              @db.Text
+  syncError           String?
   syncStatus          SyncStatus           @default(PENDING)
   investorCommissions InvestorCommission[]
   client              Client               @relation(fields: [clientId], references: [id])
@@ -363,7 +362,7 @@ model Invoice {
   @@index([invoiceDate], map: "Invoice_invoiceDate_idx")
   @@index([invoiceNumber], map: "Invoice_invoiceNumber_idx")
   @@index([status], map: "Invoice_status_idx")
-  @@index([orderId], map: "invoice_orderId_idx")
+  @@index([orderId])
   @@map("invoice")
 }
 
@@ -377,14 +376,14 @@ model InvoiceItem {
   totalAmount Decimal  @db.Decimal(10, 2)
   serviceId   Int?
   domainId    Int?
-  metadata    String?  @db.Text
+  metadata    String?
   domain      Domain?  @relation(fields: [domainId], references: [id])
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   service     Service? @relation(fields: [serviceId], references: [id])
 
   @@index([invoiceId], map: "InvoiceItem_invoiceId_idx")
   @@index([serviceId], map: "InvoiceItem_serviceId_idx")
-  @@index([domainId], map: "invoiceitem_domainId_idx")
+  @@index([domainId])
   @@map("invoiceitem")
 }
 
@@ -409,13 +408,13 @@ model LinkTracking {
 model NetworkIssue {
   id               Int       @id @default(autoincrement())
   title            String
-  description      String    @db.Text
+  description      String
   type             String
   status           String
   startDate        DateTime
   endDate          DateTime?
-  affectedServices String?   @db.Text
-  updates          String?   @db.Text
+  affectedServices String?
+  updates          String?
   createdAt        DateTime  @default(now())
 
   @@index([startDate], map: "NetworkIssue_startDate_idx")
@@ -432,9 +431,9 @@ model Order {
   paymentMethod     String?
   totalAmount       Decimal              @db.Decimal(10, 2)
   promoCode         String?
-  fraudCheckData    String?              @db.Text
-  notes             String?              @db.Text
-  adminNotes        String?              @db.Text
+  fraudCheckData    String?
+  notes             String?
+  adminNotes        String?
   resellerId        Int?
   isResellerOrder   Boolean              @default(false)
   createdAt         DateTime             @default(now())
@@ -466,7 +465,7 @@ model OrderItem {
   unitPrice     Decimal @db.Decimal(10, 2)
   setupFee      Decimal @default(0.00) @db.Decimal(10, 2)
   totalPrice    Decimal @db.Decimal(10, 2)
-  configOptions String? @db.Text
+  configOptions String?
   order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product       Product @relation(fields: [productId], references: [id])
 
@@ -481,7 +480,7 @@ model OrderStatusHistory {
   oldStatus    String
   newStatus    String
   changedBy    String
-  changeReason String?  @db.Text
+  changeReason String?
   timestamp    DateTime @default(now())
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -494,7 +493,7 @@ model PaymentGateway {
   id          Int     @id @default(autoincrement())
   gatewayName String  @unique(map: "PaymentGateway_gatewayName_key")
   displayName String
-  settings    String? @db.Text
+  settings    String?
   enabled     Boolean @default(false)
   testMode    Boolean @default(false)
 
@@ -502,11 +501,33 @@ model PaymentGateway {
   @@map("paymentgateway")
 }
 
+model ManualPaymentMethod {
+  id               Int      @id @default(autoincrement())
+  name             String
+  description      String?
+  type             String   // "mobile_wallet" | "bank" | "auto_gateway"
+  subtype          String?  // e.g. "merchant" | "personal" | null
+  enabled          Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  accountNumber    String?
+  accountName      String?
+  branchName       String?
+  instructionsEn   String?  @db.Text
+  instructionsBn   String?  @db.Text
+  metadata         String?  @db.Text // JSON for extra fields
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([enabled])
+  @@index([displayOrder])
+  @@map("manualpaymentmethod")
+}
+
 model PredefinedReply {
   id        Int    @id @default(autoincrement())
   title     String
   category  String
-  message   String @db.Text
+  message   String
   tags      String
   usedCount Int    @default(0)
 
@@ -521,8 +542,8 @@ model Product {
   slug             String               @unique(map: "Product_slug_key")
   productType      ProductType
   pricingModel     PricingModel
-  description      String?              @db.Text
-  features         String?              @db.Text
+  description      String?
+  features         String?
   setupFee         Decimal              @default(0.00) @db.Decimal(10, 2)
   monthlyPrice     Decimal              @default(0.00) @db.Decimal(10, 2)
   quarterlyPrice   Decimal              @default(0.00) @db.Decimal(10, 2)
@@ -554,7 +575,7 @@ model Product {
   @@index([serviceId], map: "Product_serviceId_idx")
   @@index([slug], map: "Product_slug_idx")
   @@index([status], map: "Product_status_idx")
-  @@index([serverId], map: "product_serverId_idx")
+  @@index([serverId])
   @@map("product")
 }
 
@@ -562,7 +583,7 @@ model ProductService {
   id              Int              @id @default(autoincrement())
   name            String
   slug            String           @unique
-  description     String?          @db.Text
+  description     String?
   parentServiceId Int?
   displayOrder    Int              @default(0)
   iconClass       String?
@@ -572,7 +593,7 @@ model ProductService {
   childServices   ProductService[] @relation("ServiceHierarchy")
 
   @@index([slug])
-  @@index([parentServiceId], map: "product_services_parentServiceId_idx")
+  @@index([parentServiceId])
   @@map("product_services")
 }
 
@@ -587,7 +608,7 @@ model Promotion {
   usedCount          Int       @default(0)
   minimumOrderAmount Decimal?  @db.Decimal(10, 2)
   recurrence         Int?
-  applicableProducts String?   @db.Text
+  applicableProducts String?
   createdAt          DateTime  @default(now())
 
   @@index([code], map: "Promotion_code_idx")
@@ -604,8 +625,8 @@ model Quote {
   validUntil   DateTime
   status       String      @default("DRAFT")
   totalAmount  Decimal     @db.Decimal(10, 2)
-  terms        String?     @db.Text
-  notes        String?     @db.Text
+  terms        String?
+  notes        String?
   createdAt    DateTime    @default(now())
   invoiceId    Int?        @unique
   subject      String?
@@ -636,7 +657,7 @@ model QuoteItem {
   quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@index([quoteId], map: "QuoteItem_quoteId_idx")
-  @@index([productId], map: "quoteitem_productId_idx")
+  @@index([productId])
   @@map("quoteitem")
 }
 
@@ -663,9 +684,9 @@ model ResellerCommission {
   @@index([payoutId], map: "ResellerCommission_payoutId_idx")
   @@index([resellerId], map: "ResellerCommission_resellerId_idx")
   @@index([status], map: "ResellerCommission_status_idx")
-  @@index([clientId], map: "resellercommission_clientId_idx")
-  @@index([orderId], map: "resellercommission_orderId_idx")
-  @@index([productId], map: "resellercommission_productId_idx")
+  @@index([clientId])
+  @@index([orderId])
+  @@index([productId])
   @@map("resellercommission")
 }
 
@@ -706,7 +727,7 @@ model ResellerProduct {
 
   @@unique([resellerId, productId], map: "ResellerProduct_resellerId_productId_key")
   @@index([resellerId], map: "ResellerProduct_resellerId_idx")
-  @@index([productId], map: "resellerproduct_productId_idx")
+  @@index([productId])
   @@map("resellerproduct")
 }
 
@@ -744,14 +765,14 @@ model Service {
   username                  String?
   passwordHash              String?
   ipAddress                 String?
-  controlPanelUrl           String?
   diskUsage                 Decimal?                   @db.Decimal(10, 2)
   bandwidthUsage            Decimal?                   @db.Decimal(10, 2)
-  configOptions             String?                    @db.Text
+  configOptions             String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   amount                    Decimal                    @default(0.00) @db.Decimal(10, 2)
   billingCycle              String                     @default("monthly")
+  controlPanelUrl           String?
   cancellationRequests      CancellationRequest[]
   expiryNotificationRecords ExpiryNotificationRecord[]
   invoiceItems              InvoiceItem[]
@@ -766,15 +787,15 @@ model Service {
   @@index([nextDueDate], map: "Service_nextDueDate_idx")
   @@index([serverId], map: "Service_serverId_idx")
   @@index([status], map: "Service_status_idx")
-  @@index([orderId], map: "service_orderId_idx")
-  @@index([productId], map: "service_productId_idx")
+  @@index([orderId])
+  @@index([productId])
   @@map("service")
 }
 
 model ServiceAddon {
   id           Int      @id @default(autoincrement())
   name         String
-  description  String?  @db.Text
+  description  String?
   price        Decimal  @db.Decimal(10, 2)
   billingCycle String
   applicableTo String?
@@ -790,7 +811,7 @@ model Session {
   userId         Int
   sessionToken   String    @unique(map: "Session_sessionToken_key")
   ipAddress      String?
-  userAgent      String?   @db.Text
+  userAgent      String?
   expiresAt      DateTime
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -811,7 +832,7 @@ model Staff {
   permissionsLevel     String          @default("limited")
   signature            String?
   assignedTicketsCount Int             @default(0)
-  performanceMetrics   String?         @db.Text
+  performanceMetrics   String?
   user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   tickets              SupportTicket[]
   todoItems            TodoItem[]
@@ -848,9 +869,9 @@ model SupportTicket {
   @@index([priority], map: "SupportTicket_priority_idx")
   @@index([status], map: "SupportTicket_status_idx")
   @@index([ticketNumber], map: "SupportTicket_ticketNumber_idx")
-  @@index([departmentId], map: "supportticket_departmentId_idx")
-  @@index([serviceId], map: "supportticket_serviceId_idx")
-  @@index([staffId], map: "supportticket_staffId_idx")
+  @@index([departmentId])
+  @@index([serviceId])
+  @@index([staffId])
   @@map("supportticket")
 }
 
@@ -863,7 +884,7 @@ model TicketDepartment {
   tickets              SupportTicket[]
   assignedSupport      User?           @relation("DepartmentAssignedSupport", fields: [assignedSupportId], references: [id])
 
-  @@index([assignedSupportId], map: "ticketdepartment_assignedSupportId_idx")
+  @@index([assignedSupportId])
   @@map("ticketdepartment")
 }
 
@@ -871,8 +892,8 @@ model TicketReply {
   id             Int           @id @default(autoincrement())
   ticketId       Int
   userId         Int
-  message        String        @db.Text
-  attachments    String?       @db.Text
+  message        String
+  attachments    String?
   isInternalNote Boolean       @default(false)
   emailSent      Boolean       @default(false)
   timestamp      DateTime      @default(now())
@@ -889,7 +910,7 @@ model TodoItem {
   id          Int       @id @default(autoincrement())
   staffId     Int
   title       String
-  description String?   @db.Text
+  description String?
   priority    String
   dueDate     DateTime?
   status      String    @default("PENDING")
@@ -907,7 +928,7 @@ model TodoItem {
 model SystemSetting {
   id           Int     @id @default(autoincrement())
   settingKey   String  @unique(map: "SystemSetting_settingKey_key")
-  settingValue String  @db.Text
+  settingValue String
   settingGroup String
   encrypted    Boolean @default(false)
 
@@ -921,7 +942,7 @@ model TaxRate {
   state             String?
   taxRate           Decimal  @db.Decimal(5, 2)
   compound          Boolean  @default(false)
-  appliedToProducts String?  @db.Text
+  appliedToProducts String?
   createdAt         DateTime @default(now())
 
   @@index([country], map: "TaxRate_country_idx")
@@ -937,8 +958,8 @@ model Transaction {
   fees            Decimal?   @db.Decimal(10, 2)
   status          String
   transactionId   String?    @unique(map: "Transaction_transactionId_key")
-  gatewayResponse String?    @db.Text
-  adminNotes      String?    @db.Text
+  gatewayResponse String?
+  adminNotes      String?
   createdAt       DateTime   @default(now())
   externalId      String?    @unique
   syncStatus      SyncStatus @default(PENDING)
@@ -956,7 +977,7 @@ model WhoisLog {
   id        Int      @id @default(autoincrement())
   domain    String
   userId    Int
-  result    String   @db.Text
+  result    String
   timestamp DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
 
@@ -970,12 +991,12 @@ model Refund {
   id              Int         @id @default(autoincrement())
   transactionId   Int
   amount          Decimal     @db.Decimal(10, 2)
-  reason          String      @db.Text
+  reason          String
   status          String      @default("PENDING_AUTHORIZATION")
   requestedById   Int
   authorizedById  Int?
   approvedById    Int?
-  rejectionReason String?     @db.Text
+  rejectionReason String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   approvedBy      User?       @relation("ApprovedRefunds", fields: [approvedById], references: [id])
@@ -983,10 +1004,10 @@ model Refund {
   requestedBy     User        @relation("RequestedRefunds", fields: [requestedById], references: [id])
   transaction     Transaction @relation(fields: [transactionId], references: [id])
 
-  @@index([approvedById], map: "refund_approvedById_idx")
-  @@index([authorizedById], map: "refund_authorizedById_idx")
-  @@index([requestedById], map: "refund_requestedById_idx")
-  @@index([transactionId], map: "refund_transactionId_idx")
+  @@index([approvedById])
+  @@index([authorizedById])
+  @@index([requestedById])
+  @@index([transactionId])
   @@map("refund")
 }
 
@@ -995,7 +1016,7 @@ model Notification {
   userId    Int?
   type      String
   title     String
-  message   String   @db.Text
+  message   String
   link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -1028,7 +1049,7 @@ model ActivityLog {
   id        Int      @id @default(autoincrement())
   userId    Int
   activity  String
-  details   String?  @db.Text
+  details   String?
   ipAddress String?
   timestamp DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], map: "ActivityLog_userId_fkey")
@@ -1055,14 +1076,14 @@ model User {
   markupRate            Decimal?                   @db.Decimal(5, 2)
   whiteLabelEnabled     Boolean                    @default(false)
   customDomain          String?
-  brandSettings         String?                    @db.Text
+  brandSettings         String?
   monthlyFee            Decimal?                   @db.Decimal(10, 2)
   nextBillingDate       DateTime?
   maxClients            Int?
   maxProducts           Int?
   diskSpaceLimit        Decimal?                   @db.Decimal(10, 2)
   bandwidthLimit        Decimal?                   @db.Decimal(10, 2)
-  resellerFeatures      String?                    @db.Text
+  resellerFeatures      String?
   createdAt             DateTime                   @default(now())
   updatedAt             DateTime                   @updatedAt
   phoneNumber           String?
@@ -1148,14 +1169,14 @@ model ProspectClient {
   industryCategory        String?
   companySize             String?
   annualRevenue           String?
-  currentSoftware         String?            @db.Text
-  painPoints              String?            @db.Text
+  currentSoftware         String?
+  painPoints              String?
   budgetRange             String?
   decisionMaker           String?
   purchaseTimeline        String?
-  interestedServices      String?            @db.Text
-  specificRequirements    String?            @db.Text
-  competitorUsage         String?            @db.Text
+  interestedServices      String?
+  specificRequirements    String?
+  competitorUsage         String?
   status                  ProspectStatus     @default(PENDING_VERIFICATION)
   convertedToClientId     Int?               @unique
   convertedAt             DateTime?
@@ -1165,10 +1186,10 @@ model ProspectClient {
   verifiedById            Int?
   verifiedAt              DateTime?
   fraudFlag               Boolean            @default(false)
-  fraudReason             String?            @db.Text
+  fraudReason             String?
   visitDate               DateTime?
   followUpDate            DateTime?
-  notes                   String?            @db.Text
+  notes                   String?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   pointTransactions       PointTransaction[]
@@ -1182,7 +1203,7 @@ model ProspectClient {
   @@index([verificationStatus])
   @@index([email])
   @@index([convertedToClientId])
-  @@index([verifiedById], map: "prospectclient_verifiedById_idx")
+  @@index([verifiedById])
   @@map("prospectclient")
 }
 
@@ -1191,15 +1212,15 @@ model ProofSubmission {
   prospectId         Int
   submittedById      Int
   proofType          ProofType
-  fileUrl            String?            @db.Text
+  fileUrl            String?
   gpsLatitude        Decimal?           @db.Decimal(10, 8)
   gpsLongitude       Decimal?           @db.Decimal(11, 8)
   timestamp          DateTime           @default(now())
   verificationStatus VerificationStatus @default(PENDING)
   verifiedById       Int?
   verifiedAt         DateTime?
-  verificationNotes  String?            @db.Text
-  metadata           String?            @db.Text
+  verificationNotes  String?
+  metadata           String?
   createdAt          DateTime           @default(now())
   prospect           ProspectClient     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
   submittedBy        SalesTeamMember    @relation(fields: [submittedById], references: [id])
@@ -1208,7 +1229,7 @@ model ProofSubmission {
   @@index([prospectId])
   @@index([submittedById])
   @@index([verificationStatus])
-  @@index([verifiedById], map: "proofsubmission_verifiedById_idx")
+  @@index([verifiedById])
   @@map("proofsubmission")
 }
 
@@ -1221,10 +1242,10 @@ model PointTransaction {
   balanceBefore   Decimal              @db.Decimal(10, 2)
   balanceAfter    Decimal              @db.Decimal(10, 2)
   reason          String
-  description     String?              @db.Text
+  description     String?
   processedById   Int?
   approvedById    Int?
-  metadata        String?              @db.Text
+  metadata        String?
   createdAt       DateTime             @default(now())
   approvedBy      User?                @relation("TransactionApprover", fields: [approvedById], references: [id])
   processedBy     User?                @relation("TransactionProcessor", fields: [processedById], references: [id])
@@ -1234,9 +1255,9 @@ model PointTransaction {
   @@index([salesMemberId])
   @@index([transactionType])
   @@index([createdAt])
-  @@index([approvedById], map: "pointtransaction_approvedById_idx")
-  @@index([processedById], map: "pointtransaction_processedById_idx")
-  @@index([prospectId], map: "pointtransaction_prospectId_idx")
+  @@index([approvedById])
+  @@index([processedById])
+  @@index([prospectId])
   @@map("pointtransaction")
 }
 
@@ -1248,17 +1269,17 @@ model WithdrawalRequest {
   amountInCurrency     Decimal          @db.Decimal(10, 2)
   currency             String           @default("USD")
   paymentMethod        String
-  paymentDetails       String?          @db.Text
+  paymentDetails       String?
   status               WithdrawalStatus @default(PENDING)
   requestedAt          DateTime         @default(now())
   processedById        Int?
   processedAt          DateTime?
-  processingNotes      String?          @db.Text
+  processingNotes      String?
   paidById             Int?
   paidAt               DateTime?
   transactionReference String?
   paymentProof         String?
-  rejectionReason      String?          @db.Text
+  rejectionReason      String?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
   paidBy               User?            @relation("WithdrawalPayer", fields: [paidById], references: [id])
@@ -1268,8 +1289,8 @@ model WithdrawalRequest {
   @@index([salesMemberId])
   @@index([status])
   @@index([requestedAt])
-  @@index([paidById], map: "withdrawalrequest_paidById_idx")
-  @@index([processedById], map: "withdrawalrequest_processedById_idx")
+  @@index([paidById])
+  @@index([processedById])
   @@map("withdrawalrequest")
 }
 
@@ -1282,9 +1303,9 @@ model UserApplication {
   phoneNumber   String?
   username      String            @unique
   passwordHash  String
-  reason        String?           @db.Text
+  reason        String?
   status        ApplicationStatus @default(PENDING)
-  adminNotes    String?           @db.Text
+  adminNotes    String?
   processedAt   DateTime?
   processedById Int?
   createdAt     DateTime          @default(now())
@@ -1334,7 +1355,7 @@ model InvestorPayout {
   investorId    Int
   amount        Decimal   @db.Decimal(10, 2)
   method        String
-  details       String?   @db.Text
+  details       String?
   status        String    @default("PENDING")
   transactionId String?
   processedAt   DateTime?
@@ -1355,7 +1376,7 @@ model GuestActivity {
   phone        String?
   ticketId     Int?
   activityType String         @default("TICKET_INITIATION")
-  userAgent    String?        @db.Text
+  userAgent    String?
   createdAt    DateTime       @default(now())
   expiresAt    DateTime
   ticket       SupportTicket? @relation(fields: [ticketId], references: [id])
@@ -1369,7 +1390,7 @@ model GuestActivity {
 model WebhookSubscription {
   id           Int      @id @default(autoincrement())
   targetUrl    String
-  events       String   @db.Text
+  events       String
   secretKey    String
   isActive     Boolean  @default(true)
   failureCount Int      @default(0)
@@ -1383,7 +1404,7 @@ model IntegrationQueue {
   entityType    String
   entityId      Int
   action        String
-  payload       String   @db.Text
+  payload       String
   status        String   @default("PENDING")
   attempts      Int      @default(0)
   createdAt     DateTime @default(now())
@@ -1397,8 +1418,8 @@ model GatewayLog {
   id            Int      @id @default(autoincrement())
   gateway       String
   transactionId String?
-  requestData   String?  @db.Text
-  responseData  String?  @db.Text
+  requestData   String?
+  responseData  String?
   status        String
   timestamp     DateTime @default(now())
 
@@ -1465,10 +1486,10 @@ enum ProductType {
   SSL
   RESELLER
   ADDON
+  OTHER
   WEB_DEVELOPMENT
   SOFTWARE_DEVELOPMENT
   MARKETING
-  OTHER
 }
 
 enum PricingModel {
