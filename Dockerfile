@@ -49,6 +49,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./
 
+# Copy entrypoint script (runs migrations before starting)
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 # Don't run as root
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 appuser && \
@@ -60,4 +64,4 @@ EXPOSE 3006
 
 ENV NODE_ENV=production
 
-CMD ["pnpm", "run", "start"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
