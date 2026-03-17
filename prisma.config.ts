@@ -6,8 +6,6 @@ const getEnvVar = (name: string): string => {
     return process.env[name] || ''
 }
 
-
-
 export default defineConfig({
     schema: 'prisma/schema.prisma',
     migrations: {
