@@ -27,5 +27,6 @@ fetch_*.js
 *.sql
 *.bat
 *.sh
+!docker-entrypoint.sh
 jest.config.js
 vite.config.ts
