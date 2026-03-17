@@ -15,6 +15,8 @@ import { initSocketService } from './services/socketService';
 import prisma from './config/database';
 
 const app = express();
+
+
 const PORT = process.env.PORT || 3006;
 
 // Test database connection on startup
