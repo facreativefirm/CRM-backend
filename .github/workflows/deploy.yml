@@ -136,17 +136,13 @@ jobs:
             # Tag as latest for docker-compose
             docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
 
-            # Run database migrations
-            echo "🗄️ Running database migrations..."
-            docker compose -f docker-compose.prod.yml run --rm backend pnpm exec prisma migrate deploy || echo "⚠️ Migration warning (may be first deploy)"
-
-            # Update running containers
+            # Update running containers (migrations run automatically via entrypoint)
             echo "🔄 Updating containers..."
             docker compose -f docker-compose.prod.yml up -d --no-build backend
 
-            # Wait for health checks
-            echo "⏳ Waiting for services to be healthy..."
-            sleep 10
+            # Wait for migrations + health checks
+            echo "⏳ Waiting for migrations and services to be healthy..."
+            sleep 30
 
             # Verify deployment
             echo "✅ Verifying deployment..."
