@@ -3211,3 +3211,30 @@ E:\Naimur Sharon\WHMCS\backend\src\services\socketService.ts:51:54
   50     // 2. If JWT fails, check for a valid DB Session (for Guests)
 → 51     const session = await prisma.session.findUnique(
 
+2026-03-17 16:35:00:350 error: Error in webhook retry worker: 
+Invalid `prisma.integrationQueue.findMany()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63
+
+  45 const { WebhookService } = await import('./webhook.service');
+  46 
+  47 try {
+→ 48     const pendingJobs = await prisma.integrationQueue.findMany(
+
+2026-03-17 16:40:00:400 error: Error in webhook retry worker: 
+Invalid `prisma.integrationQueue.findMany()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63
+
+  45 const { WebhookService } = await import('./webhook.service');
+  46 
+  47 try {
+→ 48     const pendingJobs = await prisma.integrationQueue.findMany(
+
+2026-03-17 16:45:00:450 error: Error in webhook retry worker: 
+Invalid `prisma.integrationQueue.findMany()` invocation in
+E:\Naimur Sharon\WHMCS\backend\src\services\cronService.ts:48:63
+
+  45 const { WebhookService } = await import('./webhook.service');
+  46 
+  47 try {
+→ 48     const pendingJobs = await prisma.integrationQueue.findMany(
+

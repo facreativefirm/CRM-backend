@@ -496,9 +496,9 @@ export const applyCoupon = async (req: AuthRequest, res: Response) => {
         if (promotion.usageLimit && promotion.usedCount >= promotion.usageLimit) throw new AppError('Promotion usage limit reached', 400);
 
         let discountAmount = new Prisma.Decimal(0);
-        if (promotion.type === 'PERCENTAGE') {
+        if (promotion.type === 'percentage') {
             discountAmount = invoice.subtotal.mul(promotion.value).div(100);
-        } else if (promotion.type === 'FIXED') {
+        } else if (promotion.type === 'fixed') {
             discountAmount = promotion.value;
         }
 
