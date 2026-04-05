@@ -28,9 +28,13 @@ router.post('/:id/apply-coupon', restrictTo('ADMIN', 'SUPER_ADMIN', 'CLIENT', 'R
 // Admin automation
 router.post('/generate-due', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.generateDueInvoices);
 
+// Super Admin: Trash / Soft-deleted Invoices
+router.get('/trash/deleted', restrictTo('SUPER_ADMIN' as any), invoicesController.getDeletedInvoices);
+router.post('/trash/:id/restore', restrictTo('SUPER_ADMIN' as any), invoicesController.restoreInvoice);
+
 // Admin: Update status & Delete
-router.post('/:id/add-payment', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.addAdminPayment);
 router.patch('/:id/status', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.updateInvoiceStatus);
+router.post('/:id/add-payment', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.addAdminPayment);
 router.post('/:id/notify', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.sendInvoiceNotification);
 router.delete('/:id', restrictTo('ADMIN', 'SUPER_ADMIN' as any), invoicesController.deleteInvoice);
 

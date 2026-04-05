@@ -703,3 +703,69 @@ export const sendInvoiceNotification = async (req: AuthRequest, res: Response) =
         res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
     }
 };
+
+/**
+ * Super Admin: Get soft-deleted Invoices
+ */
+export const getDeletedInvoices = async (req: AuthRequest, res: Response) => {
+    const r = req as any;
+    try {
+        if (!r.user || r.user.userType !== UserType.SUPER_ADMIN) {
+            throw new AppError('Unauthorized. Only Super Admins can access trash.', 403);
+        }
+
+        const invoices = await prisma.invoice.findMany({
+            where: {
+                isDeleted: true
+            },
+            include: {
+                client: {
+                    include: {
+                        user: true
+                    }
+                }
+            },
+            orderBy: { deletedAt: 'desc' },
+        });
+
+        res.status(200).json({
+            status: 'success',
+            results: invoices.length,
+            data: { invoices },
+        });
+    } catch (error: any) {
+        console.error('[GetDeletedInvoices Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
+ * Super Admin: Restore soft-deleted Invoice
+ */
+export const restoreInvoice = async (req: AuthRequest, res: Response) => {
+    const r = req as any;
+    try {
+        if (!r.user || r.user.userType !== UserType.SUPER_ADMIN) {
+            throw new AppError('Unauthorized. Only Super Admins can restore from trash.', 403);
+        }
+
+        const { id } = r.params;
+
+        const invoice = await prisma.invoice.update({
+            where: { id: parseInt(id as string) },
+            data: {
+                isDeleted: false,
+                deletedAt: null
+            }
+        });
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Invoice restored successfully',
+            data: { invoice }
+        });
+    } catch (error: any) {
+        console.error('[RestoreInvoice Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};
