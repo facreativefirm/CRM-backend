@@ -14,7 +14,6 @@ router.get('/:id', quotesController.getQuote);
 // Client Actions
 router.post('/:id/accept', restrictTo(UserType.CLIENT), quotesController.acceptQuote);
 router.post('/:id/reject', restrictTo(UserType.CLIENT), quotesController.rejectQuote);
-router.patch('/:id/client-edit', restrictTo(UserType.CLIENT), quotesController.clientEditQuote);
 
 // Admin Actions
 router.post('/', restrictTo(UserType.ADMIN, UserType.SUPER_ADMIN, UserType.STAFF), quotesController.createQuote);

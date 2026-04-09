@@ -132,7 +132,7 @@ export const updateQuote = async (req: AuthRequest, res: Response) => {
 
         const existing = await prisma.quote.findUnique({ where: { id: parseInt(id as string) } });
         if (!existing) throw new AppError('Quote not found', 404);
-        if (existing.status !== 'DRAFT') throw new AppError('Cannot edit non-draft quote', 400);
+        if (existing.status === 'ACCEPTED') throw new AppError('Cannot edit an accepted quote', 400);
 
         // Recalculate totals
         const subtotal = items.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
@@ -153,6 +153,7 @@ export const updateQuote = async (req: AuthRequest, res: Response) => {
                     totalAmount,
                     terms,
                     notes,
+                    status: existing.status !== 'DRAFT' ? 'DRAFT' : existing.status,
                     items: {
                         create: items.map((item: any) => ({
                             description: item.description,
