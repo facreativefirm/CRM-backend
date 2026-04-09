@@ -426,6 +426,109 @@ export const acceptQuote = async (req: AuthRequest, res: Response) => {
 };
 
 /**
+ * Client Edit Quote - Allows clients to modify quantities, remove items, or add notes on SENT quotes
+ */
+export const clientEditQuote = async (req: AuthRequest, res: Response) => {
+    const r = req as any;
+    try {
+        const { id } = r.params;
+        const { items, notes } = r.body;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            throw new AppError('At least one item is required', 400);
+        }
+
+        const quote = await prisma.quote.findUnique({
+            where: { id: parseInt(id as string) },
+            include: { items: true, client: { include: { user: true } } }
+        }) as any;
+
+        if (!quote) throw new AppError('Quote not found', 404);
+
+        // Security: only the owning client can edit
+        if (r.user?.userType !== UserType.CLIENT || quote.client.userId !== r.user.id) {
+            throw new AppError('Unauthorized', 403);
+        }
+
+        // Only SENT quotes can be edited by clients
+        if (quote.status !== 'SENT') {
+            throw new AppError('Only sent quotes can be modified', 400);
+        }
+
+        // Validate: clients can only modify existing items (change quantity or remove), not add new ones
+        const existingItemIds = new Set(quote.items.map((i: any) => i.id));
+        for (const item of items) {
+            if (!item.id || !existingItemIds.has(item.id)) {
+                throw new AppError('You can only modify existing items', 400);
+            }
+            if (item.quantity < 1) {
+                throw new AppError('Quantity must be at least 1', 400);
+            }
+        }
+
+        // Build updated items from the original data, applying only quantity changes
+        const updatedItems = items.map((editedItem: any) => {
+            const original = quote.items.find((i: any) => i.id === editedItem.id);
+            return {
+                id: original.id,
+                quantity: editedItem.quantity,
+                unitPrice: Number(original.unitPrice),
+                amount: editedItem.quantity * Number(original.unitPrice),
+            };
+        });
+
+        const subtotal = updatedItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+        const totalAmount = subtotal;
+
+        const updated = await prisma.$transaction(async (tx) => {
+            // Update each item's quantity and amount
+            for (const item of updatedItems) {
+                await (tx as any).quoteItem.update({
+                    where: { id: item.id },
+                    data: { quantity: item.quantity, amount: item.amount }
+                });
+            }
+
+            // Remove items not included (client removed them)
+            const keptIds = new Set(items.map((i: any) => i.id));
+            const removedIds = quote.items
+                .filter((i: any) => !keptIds.has(i.id))
+                .map((i: any) => i.id);
+            if (removedIds.length > 0) {
+                await (tx as any).quoteItem.deleteMany({
+                    where: { id: { in: removedIds } }
+                });
+            }
+
+            // Update quote totals and notes, set status to indicate client modified it
+            return await (tx as any).quote.update({
+                where: { id: quote.id },
+                data: {
+                    subtotal,
+                    totalAmount,
+                    notes: notes !== undefined ? notes : quote.notes,
+                    status: 'SENT', // Keep as SENT (admin can see changes in the items)
+                },
+                include: { items: true, client: { include: { user: true } } }
+            });
+        });
+
+        // Notify admins about the modification
+        await notificationService.broadcastToAdmins(
+            'INFO',
+            'Quote Modified by Client',
+            `Client ${quote.client.user.firstName} ${quote.client.user.lastName} has modified Quote #${quote.quoteNumber}.`,
+            `/admin/billing/quotes/${quote.id}`
+        );
+
+        res.status(200).json({ status: 'success', data: { quote: updated } });
+    } catch (error: any) {
+        console.error('[ClientEditQuote Error]:', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
  * Reject Quote
  */
 export const rejectQuote = async (req: AuthRequest, res: Response) => {
